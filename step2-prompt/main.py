@@ -22,17 +22,15 @@ def generate_zero_shot(log):
 def generate_few_shot(log):
     message = [
         {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
-        {"role": "user", "content": "Classify the last log entry as either 'malicious' or 'benign', the previous log entries and classification is for you to study:\n \
-         Log: 192.168.1.110 - - [18/Feb/2025:10:25:20 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 210 ""-"" ""echo Content-Type: text/plain; echo; netstat -tulpn"", Classification: malicious,\n \
-         Log: 192.168.1.103 - - [18/Feb/2025:10:18:45 +0000] ""POST /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/bash HTTP/1.1"" 200 612 ""-"" ""echo Content-Type: text/plain; echo; whoami"", Classification: malicious, \n\
-         Log: 192.168.1.204 - - [18/Feb/2025:12:06:40 +0000] ""GET /cart HTTP/1.1"" 200 768 ""-"" ""User-Agent: Chrome/99.0"", Classification: benign \
-         Log:" + log + "Classification:"},
+        {"role": "user", "content": "Classify the last log entry as either 'malicious' or 'benign',ignoring the status code, with some examples given:\n \
+         Log 1: 192.168.1.110 - - [18/Feb/2025:10:25:20 +0000] ""POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash HTTP/1.1"" 200 210 ""-"" ""echo Content-Type: text/plain; echo; netstat -tulpn"", Classification: malicious,\n \
+         Log 2: 192.168.1.103 - - [18/Feb/2025:10:18:45 +0000] ""POST /cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/.%%32%65/bin/bash HTTP/1.1"" 200 612 ""-"" ""echo Content-Type: text/plain; echo; whoami"", Classification: malicious, \n\
+         Log 3: 192.168.1.204 - - [18/Feb/2025:12:06:40 +0000] ""GET /cart HTTP/1.1"" 200 768 ""-"" ""User-Agent: Chrome/99.0"", Classification: benign \
+         Log 4:" + log + "What is the classification of log 4? Output the the classification and reasoning for log 4 only, Focus only on the nature of the request, ignoring the status code or response"},
     ]
     return message
 
-
 def classify_log(prompts):
-    # Perform zero-shot classification
     predictions = []
     text = tokenizer.apply_chat_template(
         prompts,
@@ -57,7 +55,7 @@ if __name__ == "__main__":
     dataset = Dataset.from_pandas(df)
     
     llm = LLM(model="/vol/bitbucket/rm521/models/Qwen2.5-7B-Instruct")
-    sampling_params = SamplingParams(temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=512)
+    sampling_params = SamplingParams(temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=1024)
     tokenizer = AutoTokenizer.from_pretrained("/vol/bitbucket/rm521/models/Qwen2.5-7B-Instruct")
     labels = ["malicious", "benign"]
     
@@ -78,6 +76,3 @@ if __name__ == "__main__":
     total_count = len(df)
     accuracy = correct_count / total_count
     print(f"Accuracy: {accuracy}")
-
-    
-    

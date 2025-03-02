@@ -3,3 +3,6 @@ miniconda3/*
 models/*
 venv/*
 TXT
+script.sh
+slurm20-*
+*.csv
