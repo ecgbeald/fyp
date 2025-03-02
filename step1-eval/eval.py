@@ -1,7 +1,7 @@
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
-llm = LLM(model="/vol/bitbucket/rm521/Qwen2.5-0.5B-Instruct")
+llm = LLM(model="/vol/bitbucket/rm521/models/Qwen2.5-0.5B-Instruct")
 
 sampling_params = SamplingParams(temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=512)
 
