@@ -1,14 +1,21 @@
 # for submitting script job
-from datasets import load_dataset, Dataset
+from datasets import load_from_disk
 from trl import SFTConfig, SFTTrainer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig
 import torch
-import json
+import datetime
 
 # cured dataset
-dataset = load_dataset("json", data_files="/rds/general/user/rm521/home/fyp/data/prompt.json", split='train')
-dataset = dataset.train_test_split(test_size=0.2)
+dataset = load_from_disk("test.hf")
+
+checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-7B'
+max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
+now = datetime.datetime.now()
+timestamp = now.strftime("%d%m_%H-%M")
+max_seq_length = 8192
+
+model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
 
 peft_config = LoraConfig(
     r=16,
@@ -19,19 +26,22 @@ peft_config = LoraConfig(
     task_type="CAUSAL_LM",
 )
 
-checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-7B'
-max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
-model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
+args = SFTConfig(
+    output_dir=f"Qwen2.5-7B-SFT_{timestamp}",
+    per_device_train_batch_size=2,
+    gradient_checkpointing=True,
+    num_train_epochs=3.0,
+    bf16=True,
+    max_seq_length=max_seq_length,
+    eval_strategy="steps",
+    eval_steps=250,
+)
+
 trainer = SFTTrainer(
     model,
     train_dataset=dataset['train'],
     eval_dataset=dataset['test'],
-    args=SFTConfig(
-        output_dir="Qwen2.5-7B-SFT", 
-        do_eval=True,
-        # reduced to fit in GPU VRAM
-        per_device_train_batch_size=2,
-    ),
+    args=args,
     peft_config=peft_config,
 )
 
