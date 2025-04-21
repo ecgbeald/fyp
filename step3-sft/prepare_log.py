@@ -15,11 +15,11 @@ def generate_prompt(log):
         4. remote code execution\n\
         5. proxy-based attack (Server-Side Request Forgery, open redirect)\n \
         6. cross site scripting\n\
-        7. prompt injection targeting LLM models\n\
-        8. other (not mentioned above, e.g., local file inclusion, remote file inclusion, etc.)\n\n\
-        Return your answer in strict JSON format for structured parsing. Use the following format:\n\n{{\n  \"classification\": \"Malicious or Benign\",\n  \"reason\": \"Comma-separated list of category numbers if malicious; leave empty if benign\"\n}}\n\
-        #### Explaination: why the weblog provided is malicious, leave empty if benign.\n\
-        After the JSON briefly explain the reasoning for malicious classifications, if the log is benign, no explanation is needed."
+        7. local file inclusion\n\
+        8. prompt injection targeting LLM models\n\
+        9. other (not mentioned above, e.g., crypto mining, remote file inclusion, click spamming, etc.)\n\n\
+        Return your answer in strict JSON format for structured parsing. Use the following format:\n\n{{\n\"classification\": \"Malicious or Benign\",\n  \"reason\": \"Comma-separated list of category numbers if malicious; leave empty if benign\",\n\
+        \"Explaination\": why the weblog provided is malicious, leave empty if benign.\n}}\n"
     messages = [
         {"role": "system", "content": "You are a cybersecurity expert analyzing Apache log entries to detect potential security threats."},
         {"role": "user", "content": user_prompt + "\n\
@@ -31,9 +31,9 @@ def generate_response(label, category, explanation):
     if label == 0:
         return {"role": "assistant", "content": "```json {{ \n \"classification\" : \"Benign\", \n \"reason\":\"\"\n}}\n```"}
     else:
-        return {"role": "assistant", "content": f"```json {{ \n \"classification\" : \"Malicious\", \n \"reason\":\"{str(category)}\"\n}}\n#### Explaination: {explanation}```"}
+        return {"role": "assistant", "content": f"```json {{ \n \"classification\" : \"Malicious\", \n \"reason\":\"{str(category)}\",\n \"explaination\":{explanation}\"\n}}\n```"}
 
-dataset_path = glob.glob("../data/*.csv")
+dataset_path = glob.glob("../data/fyp_data/*.csv")
 taxonomy_map = {
     "info": 1,
     "injection": 2,
@@ -41,8 +41,9 @@ taxonomy_map = {
     "rce": 4,
     "proxy": 5,
     "xss": 6,
-    "llm": 7,
-    "other": 8
+    "lfi": 7,
+    "llm": 8,
+    "other": 9
 }
 
 df = pd.concat((load_csv(f) for f in dataset_path), ignore_index=True)
@@ -62,5 +63,6 @@ for _, row in df.iterrows():
     entry = {"messages": conversation}
     dicts.append(entry)
 
+print(f"Number of log entries: {len(df)}")
 with open("../data/prompt.json", "w", encoding="utf-8") as f:
     json.dump(dicts, f, indent=2, ensure_ascii=False)
