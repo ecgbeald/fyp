@@ -31,7 +31,7 @@ def generate_response(label, category, explanation):
     if label == 0:
         return {"role": "assistant", "content": "```json {{ \n \"classification\" : \"Benign\", \n \"reason\":\"\"\n}}\n```"}
     else:
-        return {"role": "assistant", "content": f"```json {{ \n \"classification\" : \"Malicious\", \n \"reason\":\"{str(category)}\",\n \"explaination\":{explanation}\"\n}}\n```"}
+        return {"role": "assistant", "content": f"```json {{ \n \"classification\" : \"Malicious\", \n \"reason\":\"{str(category)}\",\n \"explaination\":\"{explanation}\"\n}}\n```"}
 
 dataset_path = glob.glob("../data/fyp_data/*.csv")
 taxonomy_map = {

@@ -62,9 +62,9 @@ def multi_label(response):
 def parse_explain(response):
     matched = False
     for line in response.split("\n"):
-        if "#### Explaination" in line:
+        if "explaination" in line:
             matched = True
-            match = re.search(r'#### Explaination:\s*([\s\S]*?)```', line)
+            match = re.search(r'"explaination":\s*"([^"]*)"', line)
             if match:
                 reason_str = match.group(1)
                 return reason_str
