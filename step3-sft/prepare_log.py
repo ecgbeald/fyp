@@ -7,23 +7,24 @@ def load_csv(dataset_path):
     return df
 
 def generate_prompt(log):
-    user_prompt = "Given a log entry collected from an Apache HTTP server, classify it as either \"Malicious\" or \"Benign\".\n\n\
-        If the log is classified as malicious, specify the reason(s) (can be multiple) by selecting from the following categories: \n\n\
-        1. information exposure (reconaissance, scanning)\n \
-        2. injection (including command injection, sql injection, XML external entity attack, shellcode injection)\n \
-        3. path traversal\n\
-        4. remote code execution\n\
-        5. proxy-based attack (Server-Side Request Forgery, open redirect)\n \
-        6. cross site scripting\n\
-        7. local file inclusion\n\
-        8. prompt injection targeting LLM models\n\
-        9. other (not mentioned above, e.g., crypto mining, remote file inclusion, click spamming, etc.)\n\n\
-        Return your answer in strict JSON format for structured parsing. Use the following format:\n\n{{\n\"classification\": \"Malicious or Benign\",\n  \"reason\": \"Comma-separated list of category numbers if malicious; leave empty if benign\",\n\
-        \"Explaination\": why the weblog provided is malicious, leave empty if benign.\n}}\n"
+    user_prompt = ("Given a log entry collected from an Apache HTTP server, classify it as either \"Malicious\" or \"Benign\".\n\n"
+            "If the log is classified as malicious, specify the reason(s) (can be multiple) by selecting from the following categories: \n\n"
+            "1. information exposure (reconaissance, scanning)\n"
+            "2. injection (including command injection, sql injection, XML external entity attack, shellcode injection)\n"
+            "3. path traversal\n"
+            "4. remote code execution\n"
+            "5. proxy-based attack (Server-Side Request Forgery, open redirect)\n"
+            "6. cross site scripting\n"
+            "7. local file inclusion\n"
+            "8. prompt injection targeting LLM models\n"
+            "9. other (not mentioned above, e.g., crypto mining, remote file inclusion, click spamming, etc.)\n\n"
+            "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
+            "{{\n\"classification\": \"Malicious or Benign\",\n  \"reason\": \"Comma-separated list of category numbers if malicious; leave empty if benign\",\n"
+            "\"Explaination\": why the weblog provided is malicious, leave empty if benign.\n}}\n"
+        )    
     messages = [
         {"role": "system", "content": "You are a cybersecurity expert analyzing Apache log entries to detect potential security threats."},
-        {"role": "user", "content": user_prompt + "\n\
-        Log:" + log},
+        {"role": "user", "content": user_prompt + "\nLog:" + log},
     ]
     return messages
 

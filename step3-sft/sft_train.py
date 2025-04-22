@@ -7,7 +7,7 @@ import torch
 import datetime
 
 # cured dataset
-dataset = load_from_disk("test.hf")
+dataset = load_from_disk("../data/dataset.hf")
 
 checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-7B'
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}

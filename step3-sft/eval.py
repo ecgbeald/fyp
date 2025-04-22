@@ -64,7 +64,7 @@ def parse_explain(response):
     for line in response.split("\n"):
         if "explaination" in line:
             matched = True
-            match = re.search(r'"explaination":\s*"([^"]*)"', line)
+            match = re.search(r'"explaination":\s*"([^}]*)"', line)
             if match:
                 reason_str = match.group(1)
                 return reason_str
@@ -80,8 +80,8 @@ refs = []
 generated_responses = []
 references = []
 
-dataset = load_from_disk("test.hf")
-model_name = '/rds/general/user/rm521/home/fyp/step3-sft/Qwen2.5-7B-SFT_1504_17-11/checkpoint-4035'
+dataset = load_from_disk("../data/dataset.hf")
+model_name = '/rds/general/user/rm521/home/fyp/step3-sft/Qwen2.5-7B-SFT_2204_20-48/checkpoint-6024'
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
 model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
