@@ -28,7 +28,7 @@ def generate_zero_shot(log):
         "8. prompt injection targeting LLM models\n"
         "9. other (not mentioned above, e.g., crypto mining, click spamming, remote file inclusion, etc.)\n\n"
         "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
-        "{\n  \"classification\": \"Malicious or Benign\",\n  \"reason\": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign. \n \"Explaination\": Explaination: why the weblog provided is malicious, leave empty if benign\n}\n"
+        "{\n  \"classification\": \"Malicious or Benign\",\n  \"reason\": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign,\n\"explanation\": why the weblog provided is malicious, leave empty if benign\n}\n"
         )
     messages = [
         {"role": "system", "content": "You are a cybersecurity expert analyzing Apache log entries to detect potential security threats."},
@@ -49,7 +49,7 @@ def generate_few_shot(log):
         "8. prompt injection targeting LLM models\n"
         "9. other (not mentioned above, e.g., crypto mining, click spamming, remote file inclusion, etc.)\n\n"
         "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
-        "{\n  \"classification\": \"Malicious or Benign\",\n  \"reason\": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign. \n \"Explaination\": Explaination: why the weblog provided is malicious, leave empty if benign\n}\n"
+        "{\n  \"classification\": \"Malicious or Benign\",\n  \"reason\": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign,\n\"explanation\": why the weblog provided is malicious, leave empty if benign\n}\n"
         )
     examples = (
         "Examples:\n"
