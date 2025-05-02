@@ -9,7 +9,7 @@ def load_csv(dataset_path):
 def generate_prompt(log):
     user_prompt = ("Given a log entry collected from an Apache HTTP server, classify it as either \"Malicious\" or \"Benign\".\n\n"
             "If the log is classified as malicious, specify the reason(s) (can be multiple) by selecting from the following categories: \n\n"
-            "1. information exposure (reconaissance, scanning)\n"
+            "1. information exposure (reconnaissance, scanning)\n"
             "2. injection (including command injection, sql injection, XML external entity attack, shellcode injection)\n"
             "3. path traversal\n"
             "4. remote code execution\n"
@@ -20,19 +20,20 @@ def generate_prompt(log):
             "9. other (not mentioned above, e.g., crypto mining, remote file inclusion, click spamming, etc.)\n\n"
             "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
             "{{\n\"classification\": \"Malicious or Benign\",\n  \"reason\": \"Comma-separated list of category numbers if malicious; leave empty if benign\",\n"
-            "\"Explaination\": why the weblog provided is malicious, leave empty if benign.\n}}\n"
+            "\"Explanation\": why the weblog provided is malicious, leave empty if benign.\n}}\n"
         )    
     messages = [
         {"role": "system", "content": "You are a cybersecurity expert analyzing Apache log entries to detect potential security threats."},
-        {"role": "user", "content": user_prompt + "\nLog:" + log},
+        {"role": "instruction", "content": user_prompt},
+        {"role": "input", "content": log}
     ]
     return messages
 
 def generate_response(label, category, explanation):
     if label == 0:
-        return {"role": "assistant", "content": "```json {{\n\"classification\":\"Benign\",\n\"reason\":\"[0]\",\n\"explaination\":\"\"\n}}\n```"}
+        return {"role": "assistant", "content": f"```json {{\n\"classification\":\"Benign\",\n\"reason\":\"[0]\",\n\"explanation\":\"\"\n}}\n```"}
     else:
-        return {"role": "assistant", "content": f"```json {{\n\"classification\":\"Malicious\",\n\"reason\":\"{str(category)}\",\n\"explaination\":\"{explanation}\"\n}}\n```"}
+        return {"role": "assistant", "content": f"```json {{\n\"classification\":\"Malicious\",\n\"reason\":\"{str(category)}\",\n\"explanation\":\"{explanation}\"\n}}\n```"}
 
 dataset_path = glob.glob("../data/fyp_data/*.csv")
 taxonomy_map = {
@@ -65,5 +66,5 @@ for _, row in df.iterrows():
     dicts.append(entry)
 
 print(f"Number of log entries: {len(df)}")
-with open("../data/prompt.json", "w", encoding="utf-8") as f:
+with open("../data/no_template.json", "w", encoding="utf-8") as f:
     json.dump(dicts, f, indent=2, ensure_ascii=False)

@@ -1,34 +1,20 @@
-from datasets import load_from_disk
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from torch.utils.data import DataLoader
+from unsloth import FastLanguageModel
 import torch
+
+from datasets import load_from_disk
+from trl import SFTConfig, SFTTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import LoraConfig
+import torch
+import datetime
+from torch.utils.data import DataLoader
+
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import classification_report, hamming_loss
 from sentence_transformers import SentenceTransformer, util
 import ast
 import re
-
-def collate_fn(batch):
-    # Each `batch[i]` is a dictionary with a "messages" field
-    refs = [sample["messages"][2] for sample in batch]
-    prompts = [
-        tokenizer.apply_chat_template(
-            sample["messages"][:2],  # assuming system + user
-            tokenize=False,
-            add_generation_prompt=True
-        )
-        for sample in batch
-    ]
-    tokenized = tokenizer(
-        prompts,
-        return_tensors="pt",
-        padding=True,
-        padding_side='left',
-        truncation=True,
-    )
-    tokenized["ref"] = refs
-    return tokenized
 
 def parse_label_string(s): # parsing labels such as [1,2,3], [4]
     s = s.strip()
@@ -73,6 +59,33 @@ def parse_explain(response):
     if not matched:
         return ""
 
+alpaca_prompt = """You are a cybersecurity expert analyzing Apache log entries to detect potential security threats.
+
+### Instruction:
+{}
+
+### Input:
+{}
+
+### Response:
+{}"""
+
+def collate_fn(batch):
+    # Each `batch[i]` is a dictionary with a "messages" field
+    refs = [sample["messages"][3]["content"] for sample in batch]
+    prompts = [
+        alpaca_prompt.format(sample["messages"][1]["content"], sample["messages"][2]["content"], "")
+        for sample in batch
+    ]
+    tokenized = tokenizer(
+        prompts,
+        return_tensors="pt",
+        padding=True,
+        padding_side='left',
+        truncation=True,
+    )
+    tokenized["ref"] = refs
+    return tokenized
 
 similarity_scores = []
 resps = []
@@ -81,15 +94,18 @@ generated_responses = []
 references = []
 
 dataset = load_from_disk("../data/dataset.hf")
-model_name = '/rds/general/user/rm521/home/fyp/step3-sft/Qwen2.5-0.5B-SFT_0205_00-51'
-max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
-model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+max_seq_length = 8192
+checkpoint='/rds/general/user/rm521/home/fyp/step3-sft/Qwen2.5-0.5B-Merged_0205_13-57'
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = checkpoint,
+    max_seq_length = max_seq_length,
+    dtype = torch.bfloat16,
+    load_in_4bit = False
+)
+FastLanguageModel.for_inference(model)
+model.eval()
 
-subset = dataset["valid"]
-loader = DataLoader(subset, batch_size=5, collate_fn=collate_fn)
-
-eos_token_id = tokenizer.convert_tokens_to_ids("<|endoftext|>")
+loader = DataLoader(dataset['valid'], batch_size=5, collate_fn=collate_fn)
 
 for batch in loader:
     ref_batch = batch.pop("ref")
@@ -99,7 +115,7 @@ for batch in loader:
         generated = model.generate(
             **batch,
             max_new_tokens=512,
-            eos_token_id=eos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
         )
     
@@ -109,19 +125,19 @@ for batch in loader:
         for input_ids, output in zip(batch["input_ids"], generated)
     ]
     responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    
+
     generated_responses += responses
     references += ref_batch
 
 st_model = SentenceTransformer('all-MiniLM-L6-v2')
 for ref, pred in zip(references, generated_responses):
-    ref_label = multi_label(ref['content'])
+    ref_label = multi_label(ref)
     pred_label = multi_label(pred)
     refs.append(ref_label)
     resps.append(pred_label)
     if (ref_label == [0] or pred_label == [0]):
         continue
-    ref_exp = parse_explain(ref['content'])
+    ref_exp = parse_explain(ref)
     pred_exp = parse_explain(pred)
     ref_emb = st_model.encode(ref_exp, convert_to_tensor=True)
     pred_emb = st_model.encode(pred_exp, convert_to_tensor=True)
@@ -130,7 +146,7 @@ for ref, pred in zip(references, generated_responses):
     print(ref_exp)
     print(pred_exp)
     print("\n")
-    
+
 mlb = MultiLabelBinarizer()
 y_true = mlb.fit_transform(refs)
 y_pred = mlb.transform(resps)

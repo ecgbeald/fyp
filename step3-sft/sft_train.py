@@ -9,7 +9,7 @@ import datetime
 # cured dataset
 dataset = load_from_disk("../data/dataset.hf")
 
-checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-7B'
+checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-0.5'
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
 now = datetime.datetime.now()
 timestamp = now.strftime("%d%m_%H-%M")
@@ -27,7 +27,8 @@ peft_config = LoraConfig(
 )
 
 args = SFTConfig(
-    output_dir=f"Qwen2.5-7B-SFT_{timestamp}",
+    output_dir=f"Qwen2.5-0.5B-SFT_{timestamp}",
+    load_best_model_at_end=True,
     per_device_train_batch_size=2,
     gradient_checkpointing=True,
     num_train_epochs=3.0,
@@ -46,3 +47,7 @@ trainer = SFTTrainer(
 )
 
 trainer.train()
+trainer.model = trainer.model.merge_and_unload()
+trainer.model.save_pretrained(f"Qwen2.5-0.5B-Merged_{timestamp}")
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+tokenizer.save_pretrained(save_path)
