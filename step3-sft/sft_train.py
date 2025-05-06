@@ -8,7 +8,7 @@ import datetime
 import argparse
 
 # Parse command-line arguments
-parser = argparse.ArgumentParser(description="")
+parser = argparse.ArgumentParser()
 parser.add_argument(
     "--dataset_path",
     type=str,

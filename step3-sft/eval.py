@@ -8,6 +8,24 @@ from sklearn.metrics import classification_report, hamming_loss
 from sentence_transformers import SentenceTransformer, util
 import ast
 import re
+import tqdm
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--dataset_path",
+    type=str,
+    default="../data/dataset.hf",
+    help="Path to the output dataset.",
+)
+parser.add_argument(
+    "--model",
+    type=str,
+    required=True,
+    help="Path to the model.",
+)
+args = parser.parse_args()
+
 
 def collate_fn(batch):
     # Each `batch[i]` is a dictionary with a "messages" field
@@ -16,7 +34,7 @@ def collate_fn(batch):
         tokenizer.apply_chat_template(
             sample["messages"][:2],  # assuming system + user
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=True,
         )
         for sample in batch
     ]
@@ -24,13 +42,14 @@ def collate_fn(batch):
         prompts,
         return_tensors="pt",
         padding=True,
-        padding_side='left',
+        padding_side="left",
         truncation=True,
     )
     tokenized["ref"] = refs
     return tokenized
 
-def parse_label_string(s): # parsing labels such as [1,2,3], [4]
+
+def parse_label_string(s):  # parsing labels such as [1,2,3], [4]
     s = s.strip()
     if not s:
         return [0]
@@ -45,6 +64,7 @@ def parse_label_string(s): # parsing labels such as [1,2,3], [4]
     except Exception:
         return [0]
 
+
 def multi_label(response):
     matched = False
     for line in response.split("\n"):
@@ -58,7 +78,8 @@ def multi_label(response):
                 return [0]
     if not matched:
         return [0]
-        
+
+
 def parse_explain(response):
     matched = False
     for line in response.split("\n"):
@@ -80,48 +101,48 @@ refs = []
 generated_responses = []
 references = []
 
-dataset = load_from_disk("../data/dataset.hf")
-model_name = '/rds/general/user/rm521/home/fyp/step3-sft/Qwen2.5-0.5B-SFT_0205_00-51'
+dataset = load_from_disk(args.dataset_path)
+model_name = args.model
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
-model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
+)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 subset = dataset["valid"]
 loader = DataLoader(subset, batch_size=5, collate_fn=collate_fn)
 
-eos_token_id = tokenizer.convert_tokens_to_ids("<|endoftext|>")
-
-for batch in loader:
+for batch in tqdm.tqdm(loader, desc="Generating Responses"):
     ref_batch = batch.pop("ref")
     batch = {k: v.to(model.device) for k, v in batch.items()}
-    
+
     with torch.no_grad():
         generated = model.generate(
             **batch,
             max_new_tokens=512,
-            eos_token_id=eos_token_id,
+            eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
         )
-    
+
     # Slice off prompt inputs to get only the generated completion
     generated_ids = [
-        output[len(input_ids):]
+        output[len(input_ids) :]
         for input_ids, output in zip(batch["input_ids"], generated)
     ]
     responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    
+
     generated_responses += responses
     references += ref_batch
 
-st_model = SentenceTransformer('all-MiniLM-L6-v2')
+st_model = SentenceTransformer("all-MiniLM-L6-v2")
 for ref, pred in zip(references, generated_responses):
-    ref_label = multi_label(ref['content'])
+    ref_label = multi_label(ref["content"])
     pred_label = multi_label(pred)
     refs.append(ref_label)
     resps.append(pred_label)
-    if (ref_label == [0] or pred_label == [0]):
+    if ref_label == [0] or pred_label == [0]:
         continue
-    ref_exp = parse_explain(ref['content'])
+    ref_exp = parse_explain(ref["content"])
     pred_exp = parse_explain(pred)
     ref_emb = st_model.encode(ref_exp, convert_to_tensor=True)
     pred_emb = st_model.encode(pred_exp, convert_to_tensor=True)
@@ -130,13 +151,16 @@ for ref, pred in zip(references, generated_responses):
     print(ref_exp)
     print(pred_exp)
     print("\n")
-    
+
 mlb = MultiLabelBinarizer()
 y_true = mlb.fit_transform(refs)
 y_pred = mlb.transform(resps)
 class_labels = [str(label) for label in mlb.classes_]
 print(class_labels)
-print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_labels))
+print(
+    "Classification Report:\n",
+    classification_report(y_true, y_pred, target_names=class_labels),
+)
 hamming = hamming_loss(y_true, y_pred)
 print(f"Hamming Loss: {hamming}")
 
