@@ -24,3 +24,4 @@ qwen2.5-0.5
 Qwen*
 unsloth_compile*
 *.pbs*
+step4-rl/*/*.md

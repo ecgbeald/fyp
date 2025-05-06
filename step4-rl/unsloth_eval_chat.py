@@ -2,12 +2,7 @@ from unsloth import FastLanguageModel
 import torch
 
 from datasets import load_from_disk
-from trl import SFTConfig, SFTTrainer
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import LoraConfig
 import torch
-import datetime
-from torch.utils.data import DataLoader
 
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -16,8 +11,25 @@ from sentence_transformers import SentenceTransformer, util
 import ast
 import re
 import tqdm
+import argparse
 
-def parse_label_string(s): # parsing labels such as [1,2,3], [4]
+parser = argparse.ArgumentParser(description="Unsloth Evaluation (Faster and can actually fit in 1 GPU).")
+parser.add_argument(
+    "--dataset_path",
+    type=str,
+    default="../data/dataset.hf",
+    help="Path to huggingface dataset.",
+)
+parser.add_argument(
+    "--model",
+    type=str,
+    required=True,
+    help="Model path.",
+)
+args = parser.parse_args()
+
+
+def parse_label_string(s):  # parsing labels such as [1,2,3], [4]
     s = s.strip()
     if not s:
         return []
@@ -32,6 +44,7 @@ def parse_label_string(s): # parsing labels such as [1,2,3], [4]
     except Exception:
         return []
 
+
 def multi_label(response):
     matched = False
     for line in response.split("\n"):
@@ -45,7 +58,8 @@ def multi_label(response):
                 return [0]
     if not matched:
         return [0]
-        
+
+
 def parse_explain(response):
     matched = False
     for line in response.split("\n"):
@@ -60,6 +74,7 @@ def parse_explain(response):
     if not matched:
         return ""
 
+
 def collate_fn(batch):
     # Each `batch[i]` is a dictionary with a "messages" field
     refs = [sample["reference"] for sample in batch]
@@ -72,9 +87,10 @@ def collate_fn(batch):
         )
         for sample in batch
     ]
-    tokenized = tokenizer(prompts, return_tensors = "pt", padding = True).to("cuda")
+    tokenized = tokenizer(prompts, return_tensors="pt", padding=True).to("cuda")
     tokenized["ref"] = refs
     return tokenized
+
 
 similarity_scores = []
 resps = []
@@ -82,52 +98,70 @@ refs = []
 generated_responses = []
 references = []
 
-grpo_format = '''Please respond in the following format in English:
+grpo_format = """Please respond in the following format in English:
 <thinking>
 ...(Step-by-step analysis of the log entry.)
 </thinking>
 <answer>
 ...(this is where your response goes)
-</answer>'''
+</answer>"""
+
 
 def map_to_prompt(sample):
-    msgs = sample['messages']
+    msgs = sample["messages"]
     sys = []
     instr = []
     ref = []
     for msg in msgs:
         sys.append(msg[0])
-        content = msg[1]['content'] + "\n\n" + grpo_format
-        instr.append({'content' : content, 'role': 'user'})
-        ref.append(msg[2]['content'])
+        content = msg[1]["content"] + "\n\n" + grpo_format
+        instr.append({"content": content, "role": "user"})
+        ref.append(msg[2]["content"])
     texts = []
     for system, instruction in zip(sys, instr):
-        # Must add EOS_TOKEN
         texts.append([system, instruction])
     return {"prompt": texts, "reference": ref}
-dataset = load_from_disk("../data/dataset.hf")
-dataset = dataset.map(map_to_prompt, batched = True,)
+
+
+dataset = load_from_disk(args.dataset_path)
+dataset = dataset.map(
+    map_to_prompt,
+    batched=True,
+)
 dataset["valid"] = dataset["valid"].remove_columns("messages")
 
 max_seq_length = 2048
-checkpoint='/rds/general/user/rm521/home/fyp/step4-rl/Qwen2.5-7B-GRPO_0605_02-41/checkpoint-1044'
+checkpoint = args.model
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = checkpoint,
-    max_seq_length = max_seq_length,
-    dtype = torch.bfloat16,
-    load_in_4bit = False
+    model_name=checkpoint,
+    max_seq_length=max_seq_length,
+    dtype=torch.bfloat16,
+    load_in_4bit=False,
 )
 FastLanguageModel.for_inference(model)
 tokenizer.pad_token = tokenizer.eos_token
 
-for entry in tqdm.tqdm(dataset['valid'], desc="Generating responses"):
-    inputs = [tokenizer.apply_chat_template(entry["prompt"][:2], tokenize=False, add_generation_prompt=True)]
-    inputs = tokenizer(inputs, return_tensors = "pt", padding = True).to("cuda")
+for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
+    inputs = [
+        tokenizer.apply_chat_template(
+            entry["prompt"][:2], tokenize=False, add_generation_prompt=True
+        )
+    ]
+    inputs = tokenizer(inputs, return_tensors="pt", padding=True).to("cuda")
     input_ids = inputs["input_ids"]
-    outputs = model.generate(**inputs, max_new_tokens = 512, do_sample = False, use_cache = True, pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id,)
-    generated_ids = [g[len(i):] for i, g in zip(input_ids, outputs)]
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        do_sample=False,
+        use_cache=True,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+    generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
     decoded = tokenizer.batch_decode(outputs)
-    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
+        0
+    ].strip()
     reference = entry["reference"]
     generated_responses.append(response)
     references.append(reference)
@@ -137,22 +171,28 @@ for entry in tqdm.tqdm(dataset['valid'], desc="Generating responses"):
         f.write(reference.strip() + "\n\n")
         f.write("Generated Response:\n")
         f.write(response.strip() + "\n")
-        f.write("\n" + "="*50 + "\n\n")
+        f.write("\n" + "=" * 50 + "\n\n")
 
-st_model = SentenceTransformer('all-MiniLM-L6-v2')
-for ref, pred in tqdm.tqdm(zip(references, generated_responses), total=len(references), desc="Evaluating Explanations"):
-    pattern = r"^<thinking>(?P<thinking>.*?)</thinking>\s*<answer>(?P<answer>.*?)</answer>$"
+st_model = SentenceTransformer("all-MiniLM-L6-v2")
+for ref, pred in tqdm.tqdm(
+    zip(references, generated_responses),
+    total=len(references),
+    desc="Evaluating Explanations",
+):
+    pattern = (
+        r"^<thinking>(?P<thinking>.*?)</thinking>\s*<answer>(?P<answer>.*?)</answer>$"
+    )
     compiled = re.compile(pattern, re.DOTALL)
     match = compiled.search(pred)
     if not match:
         continue
     pattern_dict = match.groupdict()
-    pred = pattern_dict['answer']
+    pred = pattern_dict["answer"]
     ref_label = multi_label(ref)
     pred_label = multi_label(pred)
     refs.append(ref_label)
     resps.append(pred_label)
-    if (ref_label == [0] or pred_label == [0]):
+    if ref_label == [0] or pred_label == [0]:
         continue
     ref_exp = parse_explain(ref)
     pred_exp = parse_explain(pred)
@@ -169,7 +209,10 @@ y_true = mlb.fit_transform(refs)
 y_pred = mlb.transform(resps)
 class_labels = [str(label) for label in mlb.classes_]
 print(class_labels)
-print("Classification Report:\n", classification_report(y_true, y_pred, target_names=class_labels))
+print(
+    "Classification Report:\n",
+    classification_report(y_true, y_pred, target_names=class_labels),
+)
 hamming = hamming_loss(y_true, y_pred)
 print(f"Hamming Loss: {hamming}")
 
