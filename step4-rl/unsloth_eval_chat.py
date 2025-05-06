@@ -66,19 +66,13 @@ def collate_fn(batch):
 
     prompts = [
         tokenizer.apply_chat_template(
-            sample["messages"][:2],
+            sample["prompt"][:2],
             tokenize=False,
-            add_generation_prompt=True
+            add_generation_prompt=False,
         )
         for sample in batch
     ]
-    tokenized = tokenizer(
-        prompts,
-        return_tensors="pt",
-        padding=True,
-        padding_side='left',
-        truncation=True,
-    )
+    tokenized = tokenizer(prompts, return_tensors = "pt", padding = True).to("cuda")
     tokenized["ref"] = refs
     return tokenized
 
@@ -110,12 +104,13 @@ def map_to_prompt(sample):
     for system, instruction in zip(sys, instr):
         # Must add EOS_TOKEN
         texts.append([system, instruction])
-    return {"messages": texts, "reference": ref}
+    return {"prompt": texts, "reference": ref}
 dataset = load_from_disk("../data/dataset.hf")
 dataset = dataset.map(map_to_prompt, batched = True,)
+dataset["valid"] = dataset["valid"].remove_columns("messages")
 
-max_seq_length = 8192
-checkpoint='/rds/general/user/rm521/home/fyp/step4-rl/Qwen2.5-7B-GRPO_0505_15-29/checkpoint-500'
+max_seq_length = 2048
+checkpoint='/rds/general/user/rm521/home/fyp/step4-rl/Qwen2.5-7B-GRPO_0605_02-41/checkpoint-1044'
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = checkpoint,
     max_seq_length = max_seq_length,
@@ -123,42 +118,36 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     load_in_4bit = False
 )
 FastLanguageModel.for_inference(model)
-model.eval()
+tokenizer.pad_token = tokenizer.eos_token
 
-loader = DataLoader(dataset['valid'], batch_size=5, collate_fn=collate_fn)
-
-for batch in tqdm.tqdm(loader, desc="Generating Responses"):
-    ref_batch = batch.pop("ref")
-    batch = {k: v.to(model.device) for k, v in batch.items()}
-    
-    with torch.no_grad():
-        generated = model.generate(
-            **batch,
-            max_new_tokens=512,
-            eos_token_id=tokenizer.eos_token_id,
-            pad_token_id=tokenizer.pad_token_id,
-        )
-    
-    # Slice off prompt inputs to get only the generated completion
-    generated_ids = [
-        output[len(input_ids):]
-        for input_ids, output in zip(batch["input_ids"], generated)
-    ]
-    responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-    
-    generated_responses += responses
-    references += ref_batch
+for entry in tqdm.tqdm(dataset['valid'], desc="Generating responses"):
+    inputs = [tokenizer.apply_chat_template(entry["prompt"][:2], tokenize=False, add_generation_prompt=True)]
+    inputs = tokenizer(inputs, return_tensors = "pt", padding = True).to("cuda")
+    input_ids = inputs["input_ids"]
+    outputs = model.generate(**inputs, max_new_tokens = 512, do_sample = False, use_cache = True, pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id,)
+    generated_ids = [g[len(i):] for i, g in zip(input_ids, outputs)]
+    decoded = tokenizer.batch_decode(outputs)
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+    reference = entry["reference"]
+    generated_responses.append(response)
+    references.append(reference)
     with open("generated_outputs.txt", "a", encoding="utf-8") as f:
-        for i, (response, reference) in enumerate(zip(responses, ref_batch), 1):
-            f.write(f"--- Example {i} ---\n")
-            f.write("Reference:\n")
-            f.write(reference.strip() + "\n\n")
-            f.write("Generated Response:\n")
-            f.write(response.strip() + "\n")
-            f.write("\n" + "="*50 + "\n\n")
+        f.write(f"-----------\n")
+        f.write("Reference:\n")
+        f.write(reference.strip() + "\n\n")
+        f.write("Generated Response:\n")
+        f.write(response.strip() + "\n")
+        f.write("\n" + "="*50 + "\n\n")
 
 st_model = SentenceTransformer('all-MiniLM-L6-v2')
 for ref, pred in tqdm.tqdm(zip(references, generated_responses), total=len(references), desc="Evaluating Explanations"):
+    pattern = r"^<thinking>(?P<thinking>.*?)</thinking>\s*<answer>(?P<answer>.*?)</answer>$"
+    compiled = re.compile(pattern, re.DOTALL)
+    match = compiled.search(pred)
+    if not match:
+        continue
+    pattern_dict = match.groupdict()
+    pred = pattern_dict['answer']
     ref_label = multi_label(ref)
     pred_label = multi_label(pred)
     refs.append(ref_label)
