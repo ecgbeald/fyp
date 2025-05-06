@@ -5,17 +5,36 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig
 import torch
 import datetime
+import argparse
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="")
+parser.add_argument(
+    "--dataset_path",
+    type=str,
+    default="../data/dataset.hf",
+    help="Path to the output dataset.",
+)
+parser.add_argument(
+    "--model",
+    type=str,
+    default="/rds/general/user/rm521/home/Qwen2.5-7B-Instruct",
+    help="Path to the model.",
+)
+args = parser.parse_args()
 
 # cured dataset
-dataset = load_from_disk("../data/dataset.hf")
+dataset = load_from_disk(args.dataset_path)
 
-checkpoint='/rds/general/user/rm521/home/fyp/qwen2.5-0.5'
+checkpoint = args.model
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
 now = datetime.datetime.now()
 timestamp = now.strftime("%d%m_%H-%M")
 max_seq_length = 8192
 
-model = AutoModelForCausalLM.from_pretrained(checkpoint, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory)
+model = AutoModelForCausalLM.from_pretrained(
+    checkpoint, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
+)
 
 peft_config = LoraConfig(
     r=16,
@@ -27,7 +46,7 @@ peft_config = LoraConfig(
 )
 
 args = SFTConfig(
-    output_dir=f"Qwen2.5-0.5B-SFT_{timestamp}",
+    output_dir=f"Qwen2.5-7B-Instr-SFT_{timestamp}",
     load_best_model_at_end=True,
     per_device_train_batch_size=2,
     gradient_checkpointing=True,
@@ -40,14 +59,14 @@ args = SFTConfig(
 
 trainer = SFTTrainer(
     model,
-    train_dataset=dataset['train'],
-    eval_dataset=dataset['test'],
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["test"],
     args=args,
     peft_config=peft_config,
 )
 
 trainer.train()
 trainer.model = trainer.model.merge_and_unload()
-trainer.model.save_pretrained(f"Qwen2.5-0.5B-Merged_{timestamp}")
+trainer.model.save_pretrained(f"Qwen2.5-7B-Instr-Merged_{timestamp}")
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-tokenizer.save_pretrained(save_path)
+tokenizer.save_pretrained(f"Qwen2.5-7B-Instr-Merged_{timestamp}")

@@ -1,30 +1,53 @@
 from unsloth import FastLanguageModel
 import torch
-from datasets import load_from_disk, load_dataset
+from datasets import load_from_disk
 from trl import SFTTrainer, SFTConfig
-from transformers import TrainingArguments
 import datetime
+import os
+import argparse
 
-max_seq_length = 8192
-checkpoint='/rds/general/user/rm521/home/Qwen2.5-0.5B'
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = checkpoint,
-    max_seq_length = max_seq_length,
-    dtype = torch.bfloat16,
-    load_in_4bit = False
+# Parse command-line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--dataset_path",
+    type=str,
+    default="../data/dataset.hf",
+    help="Path to the output dataset.",
 )
+parser.add_argument(
+    "--model",
+    type=str,
+    required=True,
+    help="Path to the model.",
+)
+args = parser.parse_args()
+
+
+max_seq_length = 2048
+lora_rank = 128
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+checkpoint = args.model
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name=checkpoint,
+    max_seq_length=max_seq_length,
+    dtype=torch.bfloat16,
+    load_in_4bit=False,
+    fast_inference=True,
+    max_lora_rank=lora_rank,
+    gpu_memory_utilization=0.9,
+)
+
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 16,
-    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                      "gate_proj", "up_proj", "down_proj",],
-    lora_alpha = 16,
-    lora_dropout = 0,
-    bias = "none",
-    use_gradient_checkpointing = "unsloth",
-    random_state = 3407,
-    use_rslora = False,
-    loftq_config = None,
+    r=lora_rank,
+    target_modules="all-linear",
+    lora_alpha=lora_rank,
+    lora_dropout=0.05,
+    bias="none",
+    use_gradient_checkpointing="unsloth",
+    random_state=42,
+    use_rslora=True,
+    loftq_config=None,
 )
 
 alpaca_prompt = """You are a cybersecurity expert analyzing Apache log entries to detect potential security threats.
@@ -40,8 +63,9 @@ alpaca_prompt = """You are a cybersecurity expert analyzing Apache log entries t
 
 EOS_TOKEN = tokenizer.eos_token
 
+
 def formatting_prompts_func(examples):
-    messages = examples['messages']
+    messages = examples["messages"]
     instructions = []
     inputs = []
     outputs = []
@@ -54,39 +78,51 @@ def formatting_prompts_func(examples):
         # Must add EOS_TOKEN
         text = alpaca_prompt.format(instruction, input, output) + EOS_TOKEN
         texts.append(text)
-    return { "text" : texts, }
+    return {"text": texts}
 
-dataset = load_from_disk("../data/dataset.hf")
-dataset = dataset.map(formatting_prompts_func, batched = True,)
+
+dataset = load_from_disk(args.dataset_path)
+dataset = dataset.map(
+    formatting_prompts_func,
+    batched=True,
+)
 
 now = datetime.datetime.now()
 timestamp = now.strftime("%d%m_%H-%M")
 
 args = SFTConfig(
-    output_dir=f"Qwen2.5-0.5B-SFT_{timestamp}",
+    output_dir=f"Qwen2.5-7B-SFT_{timestamp}",
     load_best_model_at_end=True,
     per_device_train_batch_size=2,
     gradient_checkpointing=True,
-    num_train_epochs=3.0,
+    num_train_epochs=6.0,
+    learning_rate=5e-5,
+    warmup_steps=100,
+    weight_decay=0.01,
+    logging_steps=50,
     bf16=True,
     max_seq_length=max_seq_length,
     eval_strategy="steps",
-    eval_steps=250,
-    report_to = "none",
+    eval_steps=50,
+    report_to="none",
 )
 
 trainer = SFTTrainer(
-    model = model,
-    tokenizer = tokenizer,
-    train_dataset = dataset['train'],
-    eval_dataset = dataset['test'],
-    dataset_text_field = "text",
-    max_seq_length = max_seq_length,
-    dataset_num_proc = 2,
-    packing = False,
-    args = args,
+    model=model,
+    tokenizer=tokenizer,
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["test"],
+    dataset_text_field="text",
+    max_seq_length=max_seq_length,
+    dataset_num_proc=2,
+    packing=False,
+    args=args,
 )
 
 trainer_stats = trainer.train()
 print(trainer_stats)
-model.save_pretrained_merged(f"Qwen2.5-0.5B-Merged_{timestamp}", tokenizer, save_method = "merged_16bit",)
+model.save_pretrained_merged(
+    f"Qwen2.5-7B-Merged_{timestamp}",
+    tokenizer,
+    save_method="merged_16bit",
+)
