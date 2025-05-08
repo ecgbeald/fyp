@@ -16,7 +16,7 @@ import os
 
 # Add the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from utils.label_parsing import multi_label, parse_explain
+from utils.multi_label_bin import process_mult
 
 parser = argparse.ArgumentParser(
     description="Unsloth Evaluation (Faster and can actually fit in 1 GPU)."
@@ -134,48 +134,19 @@ for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
         f.write(response.strip() + "\n")
         f.write("\n" + "=" * 50 + "\n\n")
 
-st_model = SentenceTransformer("all-MiniLM-L6-v2")
-for ref, pred in tqdm.tqdm(
-    zip(references, generated_responses),
-    total=len(references),
-    desc="Evaluating Explanations",
-):
+generated_answers = []
+for pred in generated_responses:
     pattern = (
         r"^<thinking>(?P<thinking>.*?)</thinking>\s*<answer>(?P<answer>.*?)</answer>$"
     )
     compiled = re.compile(pattern, re.DOTALL)
     match = compiled.search(pred)
     if not match:
+        generated_answers.append("")
         continue
     pattern_dict = match.groupdict()
-    pred = pattern_dict["answer"]
-    ref_label = multi_label(ref)
-    pred_label = multi_label(pred)
-    refs.append(ref_label)
-    resps.append(pred_label)
-    if ref_label == [0] or pred_label == [0]:
-        continue
-    ref_exp = parse_explain(ref)
-    pred_exp = parse_explain(pred)
-    ref_emb = st_model.encode(ref_exp, convert_to_tensor=True)
-    pred_emb = st_model.encode(pred_exp, convert_to_tensor=True)
-    sim_score = util.cos_sim(ref_emb, pred_emb).item()
-    similarity_scores.append(sim_score)
-    print(ref_exp)
-    print(pred_exp)
-    print("\n")
+    generated_answers.append(pattern_dict["answer"])
 
-mlb = MultiLabelBinarizer()
-y_true = mlb.fit_transform(refs)
-y_pred = mlb.transform(resps)
-class_labels = [str(label) for label in mlb.classes_]
-print(class_labels)
-print(
-    "Classification Report:\n",
-    classification_report(y_true, y_pred, target_names=class_labels),
-)
-hamming = hamming_loss(y_true, y_pred)
-print(f"Hamming Loss: {hamming}")
+assert len(generated_answers) == len(references)
 
-average_score = np.mean(similarity_scores)
-print(f"Similarity Score for Explanation:{average_score}")
+process_mult(references, generated_answers)

@@ -9,9 +9,14 @@ import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import classification_report, hamming_loss
 from sentence_transformers import SentenceTransformer, util
-import ast
-import re
 import argparse
+import sys
+import os
+
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from utils.multi_label_bin import process_mult
+
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
@@ -28,52 +33,6 @@ parser.add_argument(
     help="Path to the model.",
 )
 args = parser.parse_args()
-
-
-def parse_label_string(s):  # parsing labels such as [1,2,3], [4]
-    s = s.strip()
-    if not s:
-        return [0]
-    try:
-        parsed = ast.literal_eval(s)
-        if isinstance(parsed, int):
-            return [parsed]
-        elif isinstance(parsed, list):
-            return [int(x) for x in parsed]
-        else:
-            return [0]
-    except Exception:
-        return [0]
-
-
-def multi_label(response):
-    matched = False
-    for line in response.split("\n"):
-        if "reason" in line:
-            matched = True
-            match = re.search(r'"reason":\s*"([^"]*)"', line)
-            if match:
-                reason_str = match.group(1)
-                return parse_label_string(reason_str)
-            else:
-                return [0]
-    if not matched:
-        return [0]
-
-
-def parse_explain(response):
-    matched = False
-    for line in response.split("\n"):
-        if "explanation" in line:
-            matched = True
-            match = re.search(r'"explanation":\s*"([^}]*)"', line)
-            if match:
-                reason_str = match.group(1)
-                return reason_str
-            else:
-                return ""
-    if not matched:
-        return ""
 
 
 alpaca_prompt = """You are a cybersecurity expert analyzing Apache log entries to detect potential security threats.
@@ -150,35 +109,4 @@ for batch in loader:
     generated_responses += responses
     references += ref_batch
 
-st_model = SentenceTransformer("all-MiniLM-L6-v2")
-for ref, pred in zip(references, generated_responses):
-    ref_label = multi_label(ref)
-    pred_label = multi_label(pred)
-    refs.append(ref_label)
-    resps.append(pred_label)
-    if ref_label == [0] or pred_label == [0]:
-        continue
-    ref_exp = parse_explain(ref)
-    pred_exp = parse_explain(pred)
-    ref_emb = st_model.encode(ref_exp, convert_to_tensor=True)
-    pred_emb = st_model.encode(pred_exp, convert_to_tensor=True)
-    sim_score = util.cos_sim(ref_emb, pred_emb).item()
-    similarity_scores.append(sim_score)
-    print(ref_exp)
-    print(pred_exp)
-    print("\n")
-
-mlb = MultiLabelBinarizer()
-y_true = mlb.fit_transform(refs)
-y_pred = mlb.transform(resps)
-class_labels = [str(label) for label in mlb.classes_]
-print(class_labels)
-print(
-    "Classification Report:\n",
-    classification_report(y_true, y_pred, target_names=class_labels),
-)
-hamming = hamming_loss(y_true, y_pred)
-print(f"Hamming Loss: {hamming}")
-
-average_score = np.mean(similarity_scores)
-print(f"Similarity Score for Explanation:{average_score}")
+process_mult(references, generated_responses)
