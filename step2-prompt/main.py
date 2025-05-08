@@ -3,13 +3,17 @@ from transformers import AutoTokenizer, pipeline
 import pandas as pd
 from datasets import Dataset
 from torch.utils.data import DataLoader
-import multiprocessing as mp
 import os
 import re
 import glob
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import classification_report, hamming_loss
-import ast
+import sys
+import os
+
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from utils.label_parsing import parse_label_string
 
 
 def load_csv(dataset_path):
@@ -148,30 +152,6 @@ def generate_few_shot(log):
     return messages
 
 
-def parse_label_string(s):  # parses "[1,2,3]", "4", "2,3", etc.
-    s = s.strip()
-    if not s:
-        return [0]
-
-    try:
-        # Try parsing as a literal (handles "[1,2,3]", "4", etc.)
-        parsed = ast.literal_eval(s)
-        if isinstance(parsed, int):
-            return [parsed]
-        elif isinstance(parsed, list):
-            if not parsed:
-                return [0]
-            return [int(x) for x in parsed]
-    except Exception:
-        pass
-
-    # Handle comma-separated values like "2,3"
-    try:
-        return [int(x.strip()) for x in s.split(",") if x.strip()]
-    except Exception:
-        return []
-
-
 def classify_log(prompts):
     predictions = []
     text = tokenizer.apply_chat_template(
@@ -179,7 +159,6 @@ def classify_log(prompts):
     )
     outputs = llm.generate(text, sampling_params)
     for output in outputs:
-        prompt = output.prompt
         generated_answer = output.outputs[0].text.lower()
         print(generated_answer)
         matched = False
