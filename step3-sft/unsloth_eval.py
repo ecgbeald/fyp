@@ -5,10 +5,6 @@ from datasets import load_from_disk
 import torch
 from torch.utils.data import DataLoader
 
-import numpy as np
-from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.metrics import classification_report, hamming_loss
-from sentence_transformers import SentenceTransformer, util
 import argparse
 import sys
 import os
