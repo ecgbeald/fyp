@@ -49,20 +49,28 @@ def collate_fn(batch):
     return tokenized
 
 
-def parse_label_string(s):  # parsing labels such as [1,2,3], [4]
+def parse_label_string(s):  # parses "[1,2,3]", "4", "2,3", etc.
     s = s.strip()
     if not s:
         return [0]
+
     try:
+        # Try parsing as a literal (handles "[1,2,3]", "4", etc.)
         parsed = ast.literal_eval(s)
         if isinstance(parsed, int):
             return [parsed]
         elif isinstance(parsed, list):
+            if not parsed:
+                return [0]
             return [int(x) for x in parsed]
-        else:
-            return [0]
     except Exception:
-        return [0]
+        pass
+
+    # Handle comma-separated values like "2,3"
+    try:
+        return [int(x.strip()) for x in s.split(",") if x.strip()]
+    except Exception:
+        return []
 
 
 def multi_label(response):

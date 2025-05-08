@@ -46,7 +46,7 @@ peft_config = LoraConfig(
 )
 
 args = SFTConfig(
-    output_dir=f"Qwen2.5-7B-Instr-SFT_{timestamp}",
+    output_dir=f"{model.config._name_or_path.split("/")[-1]}-Instr-SFT_{timestamp}",
     load_best_model_at_end=True,
     per_device_train_batch_size=2,
     gradient_checkpointing=True,
@@ -67,6 +67,6 @@ trainer = SFTTrainer(
 
 trainer.train()
 trainer.model = trainer.model.merge_and_unload()
-trainer.model.save_pretrained(f"Qwen2.5-7B-Instr-Merged_{timestamp}")
+trainer.model.save_pretrained(f"{model.config._name_or_path.split("/")[-1]}-Instr-Merged_{timestamp}")
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-tokenizer.save_pretrained(f"Qwen2.5-7B-Instr-Merged_{timestamp}")
+tokenizer.save_pretrained(f"{model.config._name_or_path.split("/")[-1]}-Instr-Merged_{timestamp}")

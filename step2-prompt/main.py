@@ -65,7 +65,7 @@ def generate_few_shot(log):
     )
     examples = (
         "Examples:\n"
-        "Log Entry 0: 84.252.135.0 - - [12/Mar/2025:03:22:48 +0000] \"HEAD /.env.~ HTTP/1.1\" 404 196 \"-\" \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36 Edg/92.0.902.67\"\n"
+        'Log Entry 0: 84.252.135.0 - - [12/Mar/2025:03:22:48 +0000] "HEAD /.env.~ HTTP/1.1" 404 196 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36 Edg/92.0.902.67"\n'
         "Response:\n"
         "{\n"
         '    "classification": "Malicious",\n'
@@ -114,7 +114,8 @@ def generate_few_shot(log):
         '    "reason": "[5]",\n'
         '    "explanation": "skipped"\n'
         "}\n"
-        'Log Entry 7: 134.57.85.177 - - [22/Dec/2016:16:18:20 +0300] "GET /templates/beez_20/css/personal.css HTTP/1.1" 200 4918 "http://192.168.4.161/?wvstest=javascript:domxssExecutionSink(1,%22''%5C%22%3E%3Cxsstag%3E()locxss%22)" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.21"\n'
+        'Log Entry 7: 134.57.85.177 - - [22/Dec/2016:16:18:20 +0300] "GET /templates/beez_20/css/personal.css HTTP/1.1" 200 4918 "http://192.168.4.161/?wvstest=javascript:domxssExecutionSink(1,%22'
+        '%5C%22%3E%3Cxsstag%3E()locxss%22)" "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.21"\n'
         "Response:\n"
         "{\n"
         '    "classification": "Malicious",\n'
@@ -142,27 +143,33 @@ def generate_few_shot(log):
             "role": "system",
             "content": "You are a cybersecurity expert analyzing Apache log entries to detect potential security threats.",
         },
-        {
-            "role": "user", 
-            "content": user_prompt + "\nAnalyse the following log:" + log},
+        {"role": "user", "content": user_prompt + "\nAnalyse the following log:" + log},
     ]
     return messages
 
 
-def parse_label_string(s):  # parsing labels such as [1,2,3], [4]
+def parse_label_string(s):  # parses "[1,2,3]", "4", "2,3", etc.
     s = s.strip()
     if not s:
         return [0]
+
     try:
+        # Try parsing as a literal (handles "[1,2,3]", "4", etc.)
         parsed = ast.literal_eval(s)
         if isinstance(parsed, int):
             return [parsed]
         elif isinstance(parsed, list):
+            if not parsed:
+                return [0]
             return [int(x) for x in parsed]
-        else:
-            return [0]
     except Exception:
-        return [0]
+        pass
+
+    # Handle comma-separated values like "2,3"
+    try:
+        return [int(x.strip()) for x in s.split(",") if x.strip()]
+    except Exception:
+        return []
 
 
 def classify_log(prompts):
@@ -177,7 +184,7 @@ def classify_log(prompts):
         print(generated_answer)
         matched = False
         for line in generated_answer.split("\n"):
-            if "reason" in line:
+            if '"reason":' in line:
                 matched = True
                 match = re.search(r'"reason":\s*(\[[^\]]*\]|"[^"]*"|\d+)', line)
                 if match:
@@ -231,11 +238,11 @@ if __name__ == "__main__":
 
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    llm = LLM(model="Qwen/Qwen2.5-7B-Instruct")
+    llm = LLM(model="../../Llama2-7b-chat/")
     sampling_params = SamplingParams(
         temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=1024
     )
-    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+    tokenizer = AutoTokenizer.from_pretrained("../../Llama2-7b-chat/")
 
     dataloader = DataLoader(dataset["log"], batch_size=10, shuffle=False)
     predictions = []
