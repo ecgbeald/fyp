@@ -1,3 +1,5 @@
+import sys
+sys.path.append('/rds/general/user/rm521/home/fyp/utils')
 from sentence_transformers import SentenceTransformer, util
 from label_parsing import multi_label, parse_explain
 from sklearn.preprocessing import MultiLabelBinarizer
