@@ -2,12 +2,7 @@ from unsloth import FastLanguageModel
 import torch
 
 from datasets import load_from_disk
-import torch
 
-import numpy as np
-from sklearn.preprocessing import MultiLabelBinarizer
-from sklearn.metrics import classification_report, hamming_loss
-from sentence_transformers import SentenceTransformer, util
 import re
 import tqdm
 import argparse
@@ -120,9 +115,7 @@ for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
     )
     generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
     decoded = tokenizer.batch_decode(outputs)
-    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[
-        0
-    ].strip()
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
     reference = entry["reference"]
     generated_responses.append(response)
     references.append(reference)

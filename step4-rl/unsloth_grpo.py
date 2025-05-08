@@ -42,7 +42,43 @@ def parse_response(text):
     return match.groupdict()
 
 
-def format_reward_func(prompts, completions, reference, **kwargs):
+def parse_thinking_len(thinking, penalty_factor=2.0, max_url_len=100):
+    # penalise long url
+    total_penalty = 0.0
+    url_pattern = r"https?://[^\s]+"
+    url_matches = re.findall(url_pattern, thinking)
+    for url in url_matches:
+        url_len = len(url)
+        if url_len > max_url_len:
+            total_penalty += penalty_factor * (url_len - max_url_len)
+    return total_penalty
+
+
+def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = 3):
+
+    def generate_ngrams(text: str, ngram_size: int):
+        words = text.lower().split()
+        return zip(*[words[i:] for i in range(ngram_size)])
+
+    def repetition_penalty_reward(text: str) -> float:
+        if not text:
+            return 0.0
+
+        word_count = len(text.split())
+        if word_count < ngram_size:
+            return 0.0
+
+        ngrams = set(generate_ngrams(text, ngram_size))
+        total_ngrams = word_count - ngram_size + 1
+
+        penalty = (1 - len(ngrams) / total_ngrams) * max_penalty
+
+        return penalty
+
+    return repetition_penalty_reward
+
+
+def format_reward_func(completions, reference, **kwargs):
     rewards = []
     for pred, ref in zip(completions, reference):
         pred = pred[0]["content"]
@@ -62,10 +98,13 @@ def format_reward_func(prompts, completions, reference, **kwargs):
                 thinking = thinking[1:]
             if thinking.endswith("\n"):
                 thinking = thinking[:-1]
+            reward -= parse_thinking_len(thinking)
+            penalty_func = get_repetition_penalty_reward()
+            reward -= penalty_func(thinking)
             answer = pattern_dict["answer"]
             if answer.startswith("\n"):
                 answer = answer[1:]
-            if thinking.endswith("\n"):
+            if answer.endswith("\n"):
                 answer = answer[:-1]
             f.write("[Reference]:\n" + ref.strip() + "\n")
             reward = 2
@@ -81,6 +120,9 @@ def format_reward_func(prompts, completions, reference, **kwargs):
                 reward += 2
             if parse_completion["reason"] == parse_reference["reason"]:
                 reward += 5
+            explanation = parse_completion["explanation"]
+            reward -= parse_thinking_len(explanation)
+            reward -= penalty_func(explanation)
             rewards.append(reward)
     return rewards
 
@@ -166,7 +208,7 @@ training_args = GRPOConfig(
     per_device_train_batch_size=8,
     gradient_accumulation_steps=4,
     num_generations=4,
-    max_prompt_length=2048,
+    max_prompt_length=max_seq_length,
     max_completion_length=512,
     num_train_epochs=2.0,
     save_steps=250,
@@ -186,4 +228,6 @@ trainer = GRPOTrainer(
     eval_dataset=dataset["test"],
 )
 trainer.train()
-model.save_pretrained_merged(f"Qwen2.5-7B-GRPO_Merged_{timestamp}", tokenizer, save_method="merged_16bit")
+model.save_pretrained_merged(
+    f"Qwen2.5-7B-GRPO_Merged_{timestamp}", tokenizer, save_method="merged_16bit"
+)

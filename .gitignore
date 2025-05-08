@@ -25,3 +25,6 @@ Qwen*
 unsloth_compile*
 *.pbs*
 step4-rl/*/*.md
+utils/__pycache__/*
+*.old
+*.text
