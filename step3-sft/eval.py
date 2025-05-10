@@ -60,6 +60,9 @@ model = AutoModelForCausalLM.from_pretrained(
     model_name, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
 )
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+if tokenizer.pad_token is None:
+    tokenizer.pad_token = tokenizer.eos_token
+    # model.resize_token_embeddings(len(tokenizer))
 
 subset = dataset["valid"]
 loader = DataLoader(subset, batch_size=5, collate_fn=collate_fn)

@@ -77,6 +77,13 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = 3):
 
     return repetition_penalty_reward
 
+def get_steps_reward(thinking, max_match):
+    pattern = r"(Step \d+:|^\d+\.|\n-|\n\*|First,|Second,|Next,|Finally,)"
+    reward = 5.0
+    match = len(re.findall(pattern, thinking, re.MULTILINE))
+    if match > max_match:
+        reward -= (match - max_match) * 2.0
+    return min(reward, match * 5 / 3)
 
 def format_reward_func(completions, reference, **kwargs):
     rewards = []
@@ -98,16 +105,18 @@ def format_reward_func(completions, reference, **kwargs):
                 thinking = thinking[1:]
             if thinking.endswith("\n"):
                 thinking = thinking[:-1]
+            reward = 2
             reward -= parse_thinking_len(thinking)
             penalty_func = get_repetition_penalty_reward()
             reward -= penalty_func(thinking)
+            reward += get_steps_reward(thinking, 7)
             answer = pattern_dict["answer"]
             if answer.startswith("\n"):
                 answer = answer[1:]
             if answer.endswith("\n"):
                 answer = answer[:-1]
             f.write("[Reference]:\n" + ref.strip() + "\n")
-            reward = 2
+            reward += 2
             reward += min(len(thinking) // 5, 3)
             parse_completion = parse_response(answer)
             if parse_completion is None:

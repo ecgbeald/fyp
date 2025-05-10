@@ -116,13 +116,13 @@ for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
     generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
     decoded = tokenizer.batch_decode(outputs)
     response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
-    reference = entry["reference"]
+    reference = {"content": entry["reference"]}
     generated_responses.append(response)
     references.append(reference)
     with open("generated_outputs.txt", "a", encoding="utf-8") as f:
         f.write(f"-----------\n")
         f.write("Reference:\n")
-        f.write(reference.strip() + "\n\n")
+        f.write(reference["content"].strip() + "\n\n")
         f.write("Generated Response:\n")
         f.write(response.strip() + "\n")
         f.write("\n" + "=" * 50 + "\n\n")
