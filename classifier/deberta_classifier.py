@@ -144,7 +144,7 @@ if __name__ == "__main__":
     now = datetime.datetime.now()
     timestamp = now.strftime("%d%m_%H-%M")
     dataset_path = args.dataset_path
-    multi = False
+    multi = args.multi
     (df, label_columns) = load_data(dataset_path, multi)
 
     dataset = Dataset.from_pandas(df)
