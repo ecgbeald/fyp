@@ -39,7 +39,7 @@ def generate_zero_shot(log):
         "8. prompt injection targeting LLM models\n"
         "9. other (not mentioned above, e.g., crypto mining, click spamming, remote file inclusion, etc.)\n\n"
         "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
-        '{\n"classification": "Malicious or Benign",\n"reason": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign,\n"explanation": why the weblog provided is malicious, leave empty if benign\n}\n'
+        '{\n"classification": "Malicious or Benign",\n"reason": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; return [0] if benign,\n"explanation": Explain why the given weblog is considered malicious. Leave this field empty if the log is benign.\n}\n'
     )
     messages = [
         {
@@ -65,7 +65,7 @@ def generate_few_shot(log):
         "8. prompt injection targeting LLM models\n"
         "9. other (not mentioned above, e.g., crypto mining, click spamming, remote file inclusion, etc.)\n\n"
         "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
-        '{\n  "classification": "Malicious or Benign",\n  "reason": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; leave empty if benign,\n"explanation": why the weblog provided is malicious, leave empty if benign\n}\n'
+        '{\n  "classification": "Malicious or Benign",\n  "reason": Comma-separated list of category numbers if malicious, such as [1, 3, 7], or [4]; return [0] if benign,\n"explanation": Explain why the given weblog is considered malicious. Leave this field empty if the log is benign.\n}\n'
     )
     examples = (
         "Examples:\n"
@@ -217,18 +217,18 @@ if __name__ == "__main__":
 
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    llm = LLM(model="../../Llama2-7b-chat/")
+    llm = LLM(model="../../Qwen2.5-7B-Instruct")
     sampling_params = SamplingParams(
         temperature=0.7, top_p=0.8, repetition_penalty=1.05, max_tokens=1024
     )
-    tokenizer = AutoTokenizer.from_pretrained("../../Llama2-7b-chat/")
+    tokenizer = AutoTokenizer.from_pretrained("../../Qwen2.5-7B-Instruct")
 
     dataloader = DataLoader(dataset["log"], batch_size=10, shuffle=False)
     predictions = []
     for batch in dataloader:
         prompts = []
         for log in batch:
-            prompts.append(generate_few_shot(log))
+            prompts.append(generate_zero_shot(log))
         predictions.extend(classify_log(prompts))
 
     df["prediction"] = predictions

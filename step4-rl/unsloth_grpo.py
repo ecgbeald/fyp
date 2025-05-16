@@ -77,8 +77,21 @@ def get_repetition_penalty_reward(ngram_size: int = 3, max_penalty: float = 3):
 
     return repetition_penalty_reward
 
+def penalize_inferred_ip_reasoning(text, penalty=5.0):
+    pattern = r"^(?=.*\bIP\b)(?=.*\b(?:\d{1,3}\.){3}\d{1,3}\b).*"
+    lines = text.splitlines()
+    for line in lines:
+        if re.search(pattern, line, re.IGNORECASE):
+            return penalty
+    return 0.0
+
+def match_keywords(text):
+    pattern = r"\b(user-agent|user agent|url|refer|referrer|status code|request method)\b"
+    matches = len(re.findall(pattern, text, re.IGNORECASE))
+    return max(6.0, matches)
+
 def get_steps_reward(thinking, max_match):
-    pattern = r"(Step \d+:|^\d+\.|\n-|\n\*|First,|Second,|Next,|Finally,)"
+    pattern = r"(^\d\.|\n-|\n\*)"
     reward = 5.0
     match = len(re.findall(pattern, thinking, re.MULTILINE))
     if match > max_match:
@@ -107,6 +120,7 @@ def format_reward_func(completions, reference, **kwargs):
                 thinking = thinking[:-1]
             reward = 2
             reward -= parse_thinking_len(thinking)
+            reward -= penalize_inferred_ip_reasoning(thinking)
             penalty_func = get_repetition_penalty_reward()
             reward -= penalty_func(thinking)
             reward += get_steps_reward(thinking, 7)
@@ -117,7 +131,8 @@ def format_reward_func(completions, reference, **kwargs):
                 answer = answer[:-1]
             f.write("[Reference]:\n" + ref.strip() + "\n")
             reward += 2
-            reward += min(len(thinking) // 5, 3)
+            reward += min(len(thinking) // 10, 5)
+            reward += match_keywords(thinking)
             parse_completion = parse_response(answer)
             if parse_completion is None:
                 f.write("Parsing failed for completion.\n")
@@ -137,14 +152,14 @@ def format_reward_func(completions, reference, **kwargs):
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-max_seq_length = 2048  # Can increase for longer reasoning traces
-lora_rank = 64  # Larger rank = smarter, but slower
+max_seq_length = 2048
+lora_rank = 64
 
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=args.model,
     max_seq_length=max_seq_length,
     load_in_4bit=False,  # False for LoRA 16bit
-    fast_inference=True,  # Enable vLLM fast inference
+    fast_inference=True,
     max_lora_rank=lora_rank,
     gpu_memory_utilization=0.9,
 )
@@ -160,9 +175,9 @@ model = FastLanguageModel.get_peft_model(
         "gate_proj",
         "up_proj",
         "down_proj",
-    ],  # Remove QKVO if out of memory
+    ],
     lora_alpha=lora_rank,
-    use_gradient_checkpointing="unsloth",  # Enable long context finetuning
+    use_gradient_checkpointing="unsloth",
     random_state=42,
 )
 
@@ -204,7 +219,7 @@ now = datetime.datetime.now()
 timestamp = now.strftime("%d%m_%H-%M")
 
 training_args = GRPOConfig(
-    use_vllm=True,  # use vLLM for fast inference!
+    use_vllm=True,
     learning_rate=5e-5,
     adam_beta1=0.9,
     adam_beta2=0.99,

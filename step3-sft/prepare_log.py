@@ -45,8 +45,8 @@ def generate_prompt(log):
         "8. prompt injection targeting LLM models\n"
         "9. other (not mentioned above, e.g., crypto mining, remote file inclusion, click spamming, etc.)\n\n"
         "Return your answer in strict JSON format for structured parsing. Use the following format:\n\n"
-        '{\n"classification": "Malicious or Benign",\n"reason": "Comma-separated list of category numbers if malicious; leave empty if benign",\n'
-        '"Explanation": why the weblog provided is malicious, leave empty if benign.\n}\n'
+        '{\n"classification": "Malicious or Benign",\n"reason": "Comma-separated list of category numbers if malicious; return [0] if benign",\n'
+        '"Explanation": why the weblog provided is malicious, leave this field empty if the log is benign.\n}\n'
     )
     if not args.split:
         messages = [
