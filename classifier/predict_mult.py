@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 import torch
 import pandas as pd
 import argparse
+import time
 
 parser = argparse.ArgumentParser(
     description="Unsloth Evaluation (Faster and can actually fit in 1 GPU)."
@@ -43,13 +44,18 @@ df = pd.DataFrame(lines, columns=["log"])
 df["log"] = df["log"].str.strip()
 dataset = Dataset.from_pandas(df)
 
+torch.cuda.reset_peak_memory_stats()
+torch.cuda.empty_cache()
+
 model_path = args.model
 model = DebertaV2ForSequenceClassification.from_pretrained(model_path, num_labels=10, output_attentions=False, output_hidden_states=False)
 model.cuda()
 tokenizer = DebertaV2Tokenizer.from_pretrained(model_path)
 
+start_time = time.time()
+
 tokenized_valid = dataset.map(preprocess_function, batched=True)
-dataloader = DataLoader(tokenized_valid, batch_size=260, collate_fn=default_data_collator)
+dataloader = DataLoader(tokenized_valid, batch_size=10, collate_fn=default_data_collator)
 
 model.eval()
 result = []
@@ -61,6 +67,19 @@ with torch.no_grad():
         probs = torch.sigmoid(outputs.logits)
         predictions = (probs > 0.5).int()
         result.extend(predictions.cpu().tolist())
+
+end_time = time.time()
+max_memory_bytes = torch.cuda.max_memory_allocated()
+max_memory_MB = max_memory_bytes / (1024 ** 2)
+
+print(f"Max GPU memory allocated: {max_memory_MB:.2f} MB")
+
+total_time = end_time - start_time
+logs_count = len(df)
+time_per_log = total_time / logs_count
+
+print(f"Total evaluation time: {total_time:.2f} seconds")
+print(f"Average time per log: {time_per_log:.6f} seconds")
 
 labels = [[i for i, val in enumerate(row) if val == 1] for row in result]
 df['pred'] = labels

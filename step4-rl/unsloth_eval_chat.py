@@ -56,7 +56,8 @@ references = []
 
 grpo_format = """Please respond in the following format in English:
 <thinking>
-...(Step-by-step analysis of the log entry.)
+...(Provide an analysis of the following log entry, justify your reasoning using bullet point)
+...(Do NOT analyse the IP address)
 </thinking>
 <answer>
 ...(this is where your response goes)
@@ -114,13 +115,19 @@ for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
         eos_token_id=tokenizer.eos_token_id,
     )
     generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
-    decoded = tokenizer.batch_decode(outputs)
+    decoded = tokenizer.batch_decode(outputs)[0]
+    match = re.search(r"^Log Entry:.*$", decoded, re.MULTILINE)
+    if match:
+        log_entry_line = match.group(0)
+        with open("generated_outputs.txt", "a", encoding="utf-8") as f:
+            f.write(f"-----------\n")
+            f.write(f"Log: {log_entry_line}")
+            
     response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
     reference = {"content": entry["reference"]}
     generated_responses.append(response)
     references.append(reference)
     with open("generated_outputs.txt", "a", encoding="utf-8") as f:
-        f.write(f"-----------\n")
         f.write("Reference:\n")
         f.write(reference["content"].strip() + "\n\n")
         f.write("Generated Response:\n")

@@ -41,6 +41,12 @@ def parse_response(text):
         return None
     return match.groupdict()
 
+def penalize_specific_words(text, penalty_per_word=1.0):
+    words_to_penalize = ["check", "analyze", "examine", "access", "interpret", "understand"]
+    pattern = r"\b(" + "|".join(words_to_penalize) + r")\b"
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    total_penalty = len(matches) * penalty_per_word
+    return total_penalty
 
 def parse_thinking_len(thinking, penalty_factor=2.0, max_url_len=100):
     # penalise long url
@@ -86,12 +92,24 @@ def penalize_inferred_ip_reasoning(text, penalty=5.0):
     return 0.0
 
 def match_keywords(text):
-    pattern = r"\b(user-agent|user agent|url|refer|referrer|status code|request method)\b"
-    matches = len(re.findall(pattern, text, re.IGNORECASE))
-    return max(6.0, matches)
+    keyword_variants = {
+        "user agent": [r"user-agent", r"user agent"],
+        "url": [r"url"],
+        "referer": [r"refer", r"referrer"],
+        "status code": [r"status code"],
+        "request method": [r"GET", r"POST", r"CONNECT", r"HEAD", r"DELETE", r"OPTIONS", r"request method"],
+    }
+    found = set()
+    for norm_keyword, variants in keyword_variants.items():
+        for variant in variants:
+            if re.search(rf"\b{variant}\b", text, re.IGNORECASE):
+                found.add(norm_keyword)
+                break
 
+    return float(max(5.0, len(found)))
+    
 def get_steps_reward(thinking, max_match):
-    pattern = r"(^\d\.|\n-|\n\*)"
+    pattern = r"^[-*] "
     reward = 5.0
     match = len(re.findall(pattern, thinking, re.MULTILINE))
     if match > max_match:
@@ -118,12 +136,18 @@ def format_reward_func(completions, reference, **kwargs):
                 thinking = thinking[1:]
             if thinking.endswith("\n"):
                 thinking = thinking[:-1]
-            reward = 2
+            reward = get_steps_reward(thinking, 7)
+            reward += 2
+            if reward == 2:
+                f.write("Parsing bullet point for completion failed.\n")
+                rewards.append(reward)
+                continue
             reward -= parse_thinking_len(thinking)
             reward -= penalize_inferred_ip_reasoning(thinking)
+            reward -= penalize_specific_words(thinking)
+            # reward += reward_enumerated_steps(thinking)
             penalty_func = get_repetition_penalty_reward()
             reward -= penalty_func(thinking)
-            reward += get_steps_reward(thinking, 7)
             answer = pattern_dict["answer"]
             if answer.startswith("\n"):
                 answer = answer[1:]
@@ -135,7 +159,7 @@ def format_reward_func(completions, reference, **kwargs):
             reward += match_keywords(thinking)
             parse_completion = parse_response(answer)
             if parse_completion is None:
-                f.write("Parsing failed for completion.\n")
+                f.write("Parsing failed for answer.\n")
                 rewards.append(reward)
                 continue
             reward += 3
@@ -183,7 +207,8 @@ model = FastLanguageModel.get_peft_model(
 
 grpo_format = """Please respond in the following format in English:
 <thinking>
-...(Step-by-step analysis of the log entry.)
+...(Provide an analysis of the following log entry, justify your reasoning using bullet point)
+...(Do NOT analyse the IP address)
 </thinking>
 <answer>
 ...(this is where your response goes)
@@ -202,7 +227,6 @@ def map_to_prompt(sample):
         ref.append(msg[2]["content"])
     texts = []
     for system, instruction in zip(sys, instr):
-        # Must add EOS_TOKEN
         texts.append([system, instruction])
     return {"prompt": texts, "reference": ref}
 
@@ -229,16 +253,16 @@ training_args = GRPOConfig(
     optim="adamw_8bit",
     logging_steps=1,
     bf16=True,
-    per_device_train_batch_size=8,
+    per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     num_generations=4,
     max_prompt_length=max_seq_length,
     max_completion_length=512,
-    num_train_epochs=2.0,
-    save_steps=250,
+    num_train_epochs=1.0,
+    save_steps=230,
     max_grad_norm=0.1,
-    dataloader_num_workers=4,
-    dataloader_pin_memory=True,
+    # dataloader_num_workers=4,
+    # dataloader_pin_memory=True,
     report_to="none",  # Can use Weights & Biases
     output_dir=f"Qwen2.5-7B-GRPO_{timestamp}",
 )
