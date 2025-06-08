@@ -26,14 +26,18 @@ def collate(batch, tokenizer):
     return tokenized
     
 
-def eval(dataset, model_path, batch_size=5):
+def eval(dataset, model_path=None, model=None, tokenizer=None, batch_size=5):
+    # for single GPU 
     max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
     generated_responses = []
     references = []
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
-    )
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    if model is None or tokenizer is None:
+        if model_path is None:
+            raise ValueError("Either model_path or model/tokenizer must be provided.")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     def collate_fn(batch):
@@ -67,13 +71,6 @@ def eval(dataset, model_path, batch_size=5):
                 decoupled_batch.append({'content': content})
             resp_split = re.findall(r'\{.*?\}', resp, re.DOTALL)
             all_responses += resp_split
-            with open("generated_outputs.txt", "a", encoding="utf-8") as f:
-                f.write(f"-----------\n")
-                f.write("Reference:\n")
-                f.write(ref['content'].strip() + "\n\n")
-                f.write("Generated Response:\n")
-                f.write(resp.strip() + "\n")
-                f.write("\n" + "=" * 50 + "\n\n")
         generated_responses += all_responses
         references += decoupled_batch
     return generated_responses, references

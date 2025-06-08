@@ -1,5 +1,4 @@
 # for submitting script job
-from datasets import load_from_disk
 from trl import SFTConfig, SFTTrainer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import LoraConfig
@@ -55,7 +54,7 @@ def train(model_path, dataset, max_seq_len):
     trainer = setup_trainer(model, dataset, peft_config, sft_config)
     trainer.train()
     trainer.model = trainer.model.merge_and_unload()
-    trainer.model.save_pretrained(save_path)
+    trainer.model.save_pretrained(f"{save_path}_Merged")
     tokenizer = AutoTokenizer.from_pretrained(model_path)
-    tokenizer.save_pretrained(save_path)
+    tokenizer.save_pretrained(f"{save_path}_Merged")
     return save_path
