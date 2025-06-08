@@ -6,6 +6,7 @@ import tqdm
 import argparse
 import sys
 import os
+import re
 
 # Add the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -85,8 +86,24 @@ for batch in tqdm.tqdm(loader, desc="Generating Responses"):
         for input_ids, output in zip(batch["input_ids"], generated)
     ]
     responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-
-    generated_responses += responses
-    references += ref_batch
+    decoupled_batch = []
+    all_responses = []
+    for (ref, resp) in zip(ref_batch, responses):
+        # ref_content = ref['content'].strip()
+        ref_split = re.findall(r'\{.*?\}', ref['content'], re.DOTALL)
+        for content in ref_split:
+            decoupled_batch.append({'content': content})
+        resp_split = re.findall(r'\{.*?\}', resp, re.DOTALL)
+        all_responses += resp_split
+        with open("generated_outputs.txt", "a", encoding="utf-8") as f:
+            f.write(f"-----------\n")
+            f.write("Reference:\n")
+            f.write(ref['content'].strip() + "\n\n")
+            f.write("Generated Response:\n")
+            f.write(resp.strip() + "\n")
+            f.write("\n" + "=" * 50 + "\n\n")
+    
+    generated_responses += all_responses
+    references += decoupled_batch
 
 process_mult(references, generated_responses)

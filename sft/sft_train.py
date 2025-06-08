@@ -30,7 +30,7 @@ checkpoint = args.model
 max_memory = {0: torch.cuda.get_device_properties(0).total_memory}
 now = datetime.datetime.now()
 timestamp = now.strftime("%d%m_%H-%M")
-max_seq_length = 8192
+max_seq_length = 1024
 
 model = AutoModelForCausalLM.from_pretrained(
     checkpoint, device_map="auto", torch_dtype=torch.bfloat16, max_memory=max_memory
@@ -41,20 +41,21 @@ peft_config = LoraConfig(
     lora_alpha=32,
     lora_dropout=0.05,
     target_modules="all-linear",
-    modules_to_save=["lm_head", "embed_token"],
+    modules_to_save=["lm_head", "embed_tokens"],
     task_type="CAUSAL_LM",
 )
 
 args = SFTConfig(
-    output_dir=f"{model.config._name_or_path.split("/")[-1]}-Instr-SFT_{timestamp}",
-    load_best_model_at_end=True,
-    per_device_train_batch_size=2,
+    output_dir=f'{model.config._name_or_path.split("/")[-1]}-SFT_{timestamp}',
+    # load_best_model_at_end=True,
+    per_device_train_batch_size=1,
     gradient_checkpointing=True,
-    num_train_epochs=3.0,
+    num_train_epochs=4.0,
     bf16=True,
     max_seq_length=max_seq_length,
+    save_steps=2500,
     eval_strategy="steps",
-    eval_steps=250,
+    eval_steps=500,
 )
 
 trainer = SFTTrainer(
@@ -67,6 +68,6 @@ trainer = SFTTrainer(
 
 trainer.train()
 trainer.model = trainer.model.merge_and_unload()
-trainer.model.save_pretrained(f"{model.config._name_or_path.split("/")[-1]}-Instr-Merged_{timestamp}")
+trainer.model.save_pretrained(f'{model.config._name_or_path.split("/")[-1]}-SFT_{timestamp}')
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-tokenizer.save_pretrained(f"{model.config._name_or_path.split("/")[-1]}-Instr-Merged_{timestamp}")
+tokenizer.save_pretrained(f'{model.config._name_or_path.split("/")[-1]}-SFT_{timestamp}')
