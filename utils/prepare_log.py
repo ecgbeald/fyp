@@ -4,7 +4,7 @@ from utils.prompt import generate_multiple_zero_shot, generate_mult_response
 import json
 
 def prepare_log(dataset_path, output_file, batch_size=1):
-    dataset_path = glob.glob(dataset_path)
+    dataset_path = glob.glob(f"{dataset_path}/*.csv")
     df = treat_dataset(dataset_path)
     dicts = []
     for i in range(0, len(df), batch_size):

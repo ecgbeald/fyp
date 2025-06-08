@@ -12,8 +12,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import classification_report
 
 from utils.label_parsing import parse_label_string
-from utils.load_csv import load_csv
-from utils.prompt import generate_few_shot
+from utils.prompt import generate_few_shot, generate_zero_shot, generate_mult_shot_bin, generate_zero_shot_bin
 from utils.convert_dataset import treat_dataset
 
 
@@ -66,6 +65,17 @@ def eval_multi_label(df):
     cr = classification_report(y_true, y_pred, target_names=class_labels)
     return cr
 
+def select_prompt_method(mode, taxonomy):
+    if mode == "few_shot" and not taxonomy:
+        return generate_mult_shot_bin
+    elif mode == "zero_shot" and not taxonomy:
+        return generate_zero_shot_bin
+    if mode == "few_shot" and taxonomy:
+        return generate_few_shot
+    elif mode == "zero_shot" and taxonomy:
+        return generate_zero_shot
+    else:
+        raise ValueError("Invalid mode or taxonomy configuration.")
 
 if __name__ == "__main__":
     # env variables to run VLLM on hpc environment
@@ -82,11 +92,24 @@ if __name__ == "__main__":
         help="The path to the dataset directory",
         default="data/fyp_data",
     )
-
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["zero_shot", "few_shot"],
+        default="few_shot",
+    )
+    parser.add_argument(
+        "--taxonomy",
+        type=bool,
+        default=True,
+    )
+    
     args = parser.parse_args()
     if not os.path.isdir(args.dataset_path):
         print(f"Error: {args.dataset_path} is not a valid directory.")
         exit(1)
+    
+    generation_func = select_prompt_method(args.mode, args.taxonomy)
 
     dataset_path = glob.glob(f"{args.dataset_path}/*.csv")
     df = treat_dataset(dataset_path)
@@ -103,7 +126,7 @@ if __name__ == "__main__":
     for batch in dataloader:
         prompts = []
         for log in batch:
-            prompts.append(generate_few_shot(log))
+            prompts.append(generation_func(log))
         predictions.extend(classify_log(prompts))
 
     # Ensure predictions match the length of the dataset
