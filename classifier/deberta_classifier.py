@@ -51,7 +51,7 @@ def make_preprocess_function(label_cols):
     def preprocess_function_mult(examples):
         examples["log"] = [str(text) for text in examples["log"]]
         tokenized = tokenizer(
-            examples["log"], truncation=True, padding="max_length", max_length=1024
+            examples["log"], truncation=True, padding="max_length", max_length=512
         )
         labels = list(zip(*(examples[str(label)] for label in label_cols)))
         tokenized["labels"] = [list(map(float, l)) for l in labels]

@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     model, tokenizer = train(model_path, dataset, max_seq_length, lora_rank)
     # to load model as model_path
+    subset = dataset['valid']
     # references, generated_answers = eval(dataset, model_path, max_seq_length)
-    references, generated_answers = eval(dataset, model=model, tokenizer=tokenizer, max_seq_length=max_seq_length)
+    references, generated_answers = eval(subset, model=model, tokenizer=tokenizer, max_seq_length=max_seq_length)
     
     process_mult(references, generated_answers)

@@ -23,9 +23,9 @@ def process_mult(references, generated_responses):
         pred_emb = st_model.encode(pred_exp, convert_to_tensor=True)
         sim_score = util.cos_sim(ref_emb, pred_emb).item()
         similarity_scores.append(sim_score)
-        print(ref_exp)
-        print(pred_exp)
-        print("\n")
+        # print(ref_exp)
+        # print(pred_exp)
+        # print("\n")
 
     mlb = MultiLabelBinarizer()
     y_true = mlb.fit_transform(refs)

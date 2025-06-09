@@ -23,7 +23,7 @@ def eval(dataset, model_path=None, model=None, tokenizer=None, max_seq_length=20
     
     generated_responses = []
     references = []
-    for entry in tqdm.tqdm(dataset["valid"], desc="Generating responses"):
+    for entry in tqdm.tqdm(dataset, desc="Generating responses"):
         inputs = [
             tokenizer.apply_chat_template(
                 entry["prompt"][:2], tokenize=False, add_generation_prompt=True
