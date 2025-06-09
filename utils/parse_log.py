@@ -1,4 +1,5 @@
 import apache_log_parser
+import pandas as pd
 
 
 def parse_log_line(line):
@@ -14,3 +15,9 @@ def parse_log_line(line):
         }
     except Exception as e:
         return {"error": str(e), "log": line}
+
+
+def parse_logs_into_df(df, log_column="log"):
+    parsed = df[log_column].apply(parse_log_line)
+    parsed_df = pd.DataFrame(parsed.tolist())
+    return pd.concat([df, parsed_df], axis=1)

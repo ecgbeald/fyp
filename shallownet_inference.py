@@ -1,8 +1,8 @@
+# shallow_net inference: for binary classification
 import torch
 from scipy.sparse import hstack
 import argparse
-from utils import parse_log_line
-from shallow_net import ShallowNet
+from utils.parse_log import parse_log_line
 
 
 def predict_single(
@@ -26,6 +26,9 @@ def predict_single(
 
 
 parser = argparse.ArgumentParser(description="Parse an Apache Log entry.")
+parser.add_argument(
+    "--model", type=str, help="The shallownet model file to use"
+)
 parser.add_argument("log_line", type=str, help="The log line to parse")
 
 args = parser.parse_args()
@@ -40,7 +43,7 @@ example_request = parsed_data["request"]
 example_referer = parsed_data["referer"]
 example_user_agent = parsed_data["user_agent"]
 
-combined = torch.load("shallow_net/combined.pth", weights_only=False)
+combined = torch.load(f"{args.model}", weights_only=False)
 model = combined["model"]
 tfidf_request = combined["vectorizer_request"]
 tfidf_referer = combined["vectorizer_referer"]
