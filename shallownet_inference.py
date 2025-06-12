@@ -3,6 +3,7 @@ import torch
 from scipy.sparse import hstack
 import argparse
 from utils.parse_log import parse_log_line
+from shallow_net.shallow_net import ShallowNet
 
 
 def predict_single(

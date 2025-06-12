@@ -59,7 +59,7 @@ def evaluate(model, dataloader, threshold=0.5):
     }
 
 
-def train(dataset_path):
+def train(dataset_path, save_path="mult.pth"):
     dataset_path = glob.glob(f"{dataset_path}/*.csv")
     df = treat_dataset(dataset_path)
     df = parse_logs_into_df(df)
@@ -106,9 +106,15 @@ def train(dataset_path):
     test_dl = DataLoader(test_ds, batch_size=64)
 
     epochs = 10
+    best_acc = 42
     for epoch in range(epochs):
         train_loss = train_epoch(model, train_dl, optimizer)
         metrics = evaluate(model, test_dl)
+        
+        if metrics["val_loss"] < best_acc:
+            best_acc = metrics["val_loss"]
+            torch.save(model.state_dict(), "best_model.pth")
+
 
         print(
             f"Epoch {epoch+1}: "
@@ -120,6 +126,16 @@ def train(dataset_path):
             f"Samples F1={metrics['samples_f1']:.4f}"
         )
         # print(metrics['classification_report'])
+
+    torch.save(
+        {
+            "model": model,
+            "vectorizer_request": tfidf_request,
+            "vectorizer_referer": tfidf_referer,
+            "vectorizer_ua": tfidf_ua,
+        },
+        save_path,
+    )
 
     X_valid_request = tfidf_request.transform(X_val["request"].fillna(""))
     X_valid_referer = tfidf_referer.transform(X_val["referer"].fillna(""))

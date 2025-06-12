@@ -13,4 +13,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     train_bin(args.dataset_path, save_path="shallow_net/combined.pth")
-    train_mult(args.dataset_path)
+    train_mult(args.dataset_path, save_path="shallow_net/mult.pth")
