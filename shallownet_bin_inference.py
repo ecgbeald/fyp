@@ -1,34 +1,13 @@
 # shallow_net inference: for binary classification
 import torch
-from scipy.sparse import hstack
 import argparse
 from utils.parse_log import parse_log_line
 from shallow_net.shallow_net import ShallowNet
-
-
-def predict_single(
-    request_text, referer_text, ua_text, model, tfidf_request, tfidf_referer, tfidf_ua
-):
-    X_req = tfidf_request.transform([request_text])
-    X_ref = tfidf_referer.transform([referer_text])
-    X_ua = tfidf_ua.transform([ua_text])
-
-    X_combined = hstack([X_req, X_ref, X_ua]).toarray()
-
-    X_tensor = torch.tensor(X_combined, dtype=torch.float32)
-
-    model.eval()
-    with torch.no_grad():
-        output = model(X_tensor)
-        prob = output.item()
-        label = int(prob >= 0.1)
-
-    return {"probability": prob, "label": label}
-
+from shallow_net.train_bin import inference
 
 parser = argparse.ArgumentParser(description="Parse an Apache Log entry.")
 parser.add_argument(
-    "--model", type=str, help="The shallownet model file to use"
+    "--model", type=str, help="The shallownet combined model file"
 )
 parser.add_argument("log_line", type=str, help="The log line to parse")
 
@@ -50,7 +29,7 @@ tfidf_request = combined["vectorizer_request"]
 tfidf_referer = combined["vectorizer_referer"]
 tfidf_ua = combined["vectorizer_ua"]
 
-result = predict_single(
+result = inference(
     example_request,
     example_referer,
     example_user_agent,
@@ -58,5 +37,6 @@ result = predict_single(
     tfidf_request,
     tfidf_referer,
     tfidf_ua,
+    threshold=0.1,
 )
 print(f"Probability: {result['probability']:.4f}, Label: {result['label']}")

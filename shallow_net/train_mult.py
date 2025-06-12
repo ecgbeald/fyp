@@ -150,3 +150,26 @@ def train(dataset_path, save_path="mult.pth"):
 
     with torch.no_grad():
         print(evaluate(model, valid_dl))
+
+# return the probability and predicted labels for the input log
+def inference(
+    request_text, referer_text, ua_text, model, tfidf_request, tfidf_referer, tfidf_ua, threshold=0.6
+):
+    X_req = tfidf_request.transform([request_text])
+    X_ref = tfidf_referer.transform([referer_text])
+    X_ua = tfidf_ua.transform([ua_text])
+
+    X_combined = hstack([X_req, X_ref, X_ua]).toarray()
+    X_tensor = torch.tensor(X_combined, dtype=torch.float32)
+
+    model.eval()
+    with torch.no_grad():
+        output = model(X_tensor)
+        probs = output.squeeze(0).numpy()
+        preds = (probs >= threshold).astype(int)
+    
+        # if all(p < 0.7 for p in probs):
+        #     return {"probability": 0.0, "label": "unknown"}
+
+
+    return probs, preds

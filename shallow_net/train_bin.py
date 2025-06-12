@@ -156,3 +156,23 @@ def train(dataset_path, save_path="combined.pth"):
 
     with torch.no_grad():
         print(evaluate(model, valid_dl))
+
+
+def inference(
+    request_text, referer_text, ua_text, model, tfidf_request, tfidf_referer, tfidf_ua, threshold=0.1
+):
+    X_req = tfidf_request.transform([request_text])
+    X_ref = tfidf_referer.transform([referer_text])
+    X_ua = tfidf_ua.transform([ua_text])
+
+    X_combined = hstack([X_req, X_ref, X_ua]).toarray()
+
+    X_tensor = torch.tensor(X_combined, dtype=torch.float32)
+
+    model.eval()
+    with torch.no_grad():
+        output = model(X_tensor)
+        prob = output.item()
+        label = int(prob >= threshold)
+
+    return {"probability": prob, "label": label}
