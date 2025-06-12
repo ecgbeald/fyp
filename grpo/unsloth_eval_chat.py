@@ -15,6 +15,23 @@ def load_model(model_path, max_seq_length):
     tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer
 
+def generate_resp(tokenizer, model, prompt, max_new_tokens=512):
+    inputs = tokenizer.apply_chat_template(
+        prompt, tokenize=False, add_generation_prompt=True
+    )
+    inputs = tokenizer([inputs], return_tensors="pt", padding=True).to("cuda")
+    input_ids = inputs["input_ids"]
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=max_new_tokens,
+        do_sample=False,
+        use_cache=True,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+    return input_ids, outputs
+
+
 def eval(dataset, model_path=None, model=None, tokenizer=None, max_seq_length=2048):
     if model is None or tokenizer is None:
         if model_path is None:
@@ -24,21 +41,7 @@ def eval(dataset, model_path=None, model=None, tokenizer=None, max_seq_length=20
     generated_responses = []
     references = []
     for entry in tqdm.tqdm(dataset, desc="Generating responses"):
-        inputs = [
-            tokenizer.apply_chat_template(
-                entry["prompt"][:2], tokenize=False, add_generation_prompt=True
-            )
-        ]
-        inputs = tokenizer(inputs, return_tensors="pt", padding=True).to("cuda")
-        input_ids = inputs["input_ids"]
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=512,
-            do_sample=False,
-            use_cache=True,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
+        input_ids, outputs = generate_resp(tokenizer, model, entry["prompt"][:2])
         generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
         decoded = tokenizer.batch_decode(outputs)[0]
         match = re.search(r"^Log Entry:.*$", decoded, re.MULTILINE)
@@ -63,3 +66,17 @@ def eval(dataset, model_path=None, model=None, tokenizer=None, max_seq_length=20
 
     assert len(generated_answers) == len(references)
     return references, generated_answers
+
+
+def inference(log, model_path=None, model=None, tokenizer=None, max_seq_length=2048):
+    if model is None or tokenizer is None:
+        if model_path is None:
+            raise ValueError("Either model_path or model/tokenizer must be provided.")
+        model, tokenizer = load_model(model_path, max_seq_length)
+        
+    input_ids, outputs = generate_resp(tokenizer, model, log)
+
+    generated_ids = [g[len(i) :] for i, g in zip(input_ids, outputs)]
+            
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+    print(response)

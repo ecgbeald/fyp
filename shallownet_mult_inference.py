@@ -55,5 +55,5 @@ if all(p < 0.7 for p in probs):
 else:
     labels = [reverse_taxonomy_map[i] for i in range(len(preds))]
     significant_labels = [labels[i] for i in range(len(preds)) if preds[i] == 1]
-    print(f"Probabilities: {probs}")
+    print(f"Probabilities: {[f'{p:.2f}' for p in probs]}")
     print(f"Predicted Labels: {significant_labels}")
